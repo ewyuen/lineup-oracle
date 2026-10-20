@@ -33,17 +33,17 @@ def create_server(client_factory: Callable[[], httpx.AsyncClient] = _default_cli
         return response.json()
 
     @server.tool()
-    async def predict_lineup(match_id: str, club: str, mode: str = "analyst", language: str = "en") -> dict:
+    async def predict_lineup(match_id: str, club: str, mode: str = "analyst", language: str = "en", session_id: str = "default") -> dict:
         """Predict a club's starting XI for a match: formation, 11 players with p_start and explanation, alternatives."""
-        return await call("POST", "/predict_lineup", {"match_id": match_id, "club": club, "mode": mode, "language": language})
+        return await call("POST", "/predict_lineup", {"match_id": match_id, "club": club, "mode": mode, "language": language, "session_id": session_id})
 
     @server.tool()
     async def submit_team_news(
         match_id: str, club: str, player_id: str | None = None, kind: str | None = None, text: str | None = None,
-        mode: str = "analyst", language: str = "en",
+        mode: str = "analyst", language: str = "en", session_id: str = "default",
     ) -> dict:
         """Submit team news (kind: injury, suspension or doubt, for a player id) and get the updated lineup."""
-        body = {"match_id": match_id, "club": club, "player_id": player_id, "kind": kind, "text": text, "mode": mode, "language": language}
+        body = {"match_id": match_id, "club": club, "player_id": player_id, "kind": kind, "text": text, "mode": mode, "language": language, "session_id": session_id}
         return await call("POST", "/team_news", body)
 
     @server.tool()

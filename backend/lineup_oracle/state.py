@@ -25,7 +25,8 @@ class State:
     events: list[Event]
     metadata: dict[str, Event] = field(init=False)
     players: dict[str, Player] = field(init=False)
-    # (match_id, club) -> {player_id: "out" | "doubt"}; in memory only, lost on restart
+    # (session_id, match_id, club) -> {player_id: "out" | "doubt"}; in memory only, lost on restart
+    # shortcut: sessions are never evicted; add a cap or expiry if the API stays public for long
     availability: dict[tuple[str, str], dict[str, str]] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)  # held while news is checked and saved
 

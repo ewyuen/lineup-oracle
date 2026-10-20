@@ -166,7 +166,7 @@ def test_latest_news_wins(client, state):
     _news(client, match, starter, "doubt")
     out = _news(client, match, starter, "injury").json()
     assert starter not in {p["id"] for p in out["players"]}
-    assert state.availability[(match["match_id"], match["home_club"])][starter] == "out"
+    assert state.availability[("default", match["match_id"], match["home_club"])][starter] == "out"
 
 
 def test_doubt_is_explained(client):
@@ -218,4 +218,16 @@ def test_concurrent_news_is_not_lost(state):
     with ThreadPoolExecutor(8) as pool:
         codes = list(pool.map(lambda pid: _news(client, match, pid, "doubt").status_code, victims))
     assert codes == [200] * 8
-    assert set(state.availability[(match["match_id"], match["home_club"])]) == set(victims)
+    assert set(state.availability[("default", match["match_id"], match["home_club"])]) == set(victims)
+
+
+def test_sessions_do_not_see_each_others_news(client):
+    match = _match(client)
+    body = {"match_id": match["match_id"], "club": match["home_club"]}
+    starter = client.post("/predict_lineup", json=body).json()["players"][3]["id"]
+    client.post("/team_news", json={**body, "player_id": starter, "kind": "injury", "session_id": "judge-1"})
+    mine = client.post("/predict_lineup", json={**body, "session_id": "judge-1"}).json()
+    theirs = client.post("/predict_lineup", json={**body, "session_id": "judge-2"}).json()
+    default = client.post("/predict_lineup", json=body).json()
+    assert starter not in {p["id"] for p in mine["players"]}
+    assert starter in {p["id"] for p in theirs["players"]} and theirs == default

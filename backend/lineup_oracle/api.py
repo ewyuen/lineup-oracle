@@ -5,6 +5,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import Field
 from pydantic import BaseModel
 
 from .explain import explain
@@ -24,6 +25,7 @@ class PredictRequest(BaseModel):
     club: str
     mode: Mode = "analyst"
     language: Language = "en"
+    session_id: str = Field("default", max_length=64)  # news is kept per session, so visitors do not see each other's
 
 
 class TeamNewsRequest(PredictRequest):
@@ -63,7 +65,7 @@ def _lineup(state: State, req: PredictRequest, availability: dict[str, str]) -> 
     if req.club not in (meta["home_club"], meta["away_club"]):
         raise HTTPException(422, f"Club {req.club!r} does not play in match {req.match_id!r}")
     club = state.roster.clubs[req.club]
-    recent = recent_xis(state.events, req.club, meta["matchday"])  # earlier matchdays only
+    recent = recent_xis(state.metadata.values(), req.club, meta["matchday"])  # earlier matchdays only
     last = recent[-RECENT_MATCHES:]
     try:
         scores = p_start_scores(club, recent, availability)
@@ -123,7 +125,7 @@ def create_app(state: State | None = None) -> FastAPI:
     @app.post("/predict_lineup", response_model=LineupOut)
     def predict_lineup(req: PredictRequest) -> LineupOut:
         s: State = app.state.lineup
-        return _lineup(s, req, s.availability.get((req.match_id, req.club), {}))
+        return _lineup(s, req, s.availability.get((req.session_id, req.match_id, req.club), {}))
 
     @app.post("/team_news", response_model=LineupOut)
     def team_news(req: TeamNewsRequest) -> LineupOut:
@@ -137,9 +139,9 @@ def create_app(state: State | None = None) -> FastAPI:
             club = s.roster.clubs.get(req.club)
             if club is None or req.player_id not in {p.id for p in club.players}:
                 raise HTTPException(422, f"Player {req.player_id!r} does not belong to club {req.club!r}")
-            updated = {**s.availability.get((req.match_id, req.club), {}), req.player_id: STATUS_OF_KIND[req.kind]}
+            updated = {**s.availability.get((req.session_id, req.match_id, req.club), {}), req.player_id: STATUS_OF_KIND[req.kind]}
             lineup = _lineup(s, req, updated)  # raises before any state changes
-            s.availability[(req.match_id, req.club)] = updated
+            s.availability[(req.session_id, req.match_id, req.club)] = updated
             return lineup
 
     return app

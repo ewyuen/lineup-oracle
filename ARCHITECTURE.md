@@ -74,13 +74,13 @@ Match metadata records the actual starting XI and formation of both clubs, `payl
 
 ### `predict_lineup` (stable)
 
-`POST /predict_lineup` with `{match_id, club, mode, language}`. `mode` is `analyst` or `fan` (default analyst); `language` is `en`, `es` or `zh-Hant` (default en); both are validated and echoed, and change nothing until the pipeline and UI changes. The club must play in the match.
+`POST /predict_lineup` with `{match_id, club, mode, language, session_id}`. `session_id` is optional (default `"default"`, at most 64 characters): team news is kept per session, so visitors using the same deployment do not see each other's news. The UI sends one id per browser. `mode` is `analyst` or `fan` (default analyst); `language` is `en`, `es` or `zh-Hant` (default en); both are validated and echoed, and change nothing until the pipeline and UI changes. The club must play in the match.
 Response: `formation`; `players` (11, each with `id`, `name`, `number`, `position`, `p_start`, `explanation`); `alternatives` (up to 2 per position, same player shape); `llm_used` (false until the LLM explainer exists); `mode`; `language`. The prediction uses only the club's XIs from earlier matchdays plus the availability submitted for that match and club, never the match's own XI. Explanations are English templates for now.
 Errors: `{"detail": message}` with 404 for an unknown match and 422 for a club not in the match, a bad mode or language, or when no formation can be filled.
 
 ### `submit_team_news` (stable)
 
-`POST /team_news` with the predict fields plus `player_id` and `kind` (`injury`, `suspension` or `doubt`). Injury and suspension mark the player out, doubt marks the player doubt, for that match and club only; the latest news for a player wins. The response is the updated `LineupOut` (same shape as `predict_lineup`). The structured path is what the UI preset buttons use. A request with `text` and no player and kind is rejected with 422 ("not available yet") until the LLM parser exists in the pipeline change. A player outside the club, an unknown match or a bad kind is rejected with no state change. Availability lives in memory and is lost on restart.
+`POST /team_news` with the predict fields plus `player_id` and `kind` (`injury`, `suspension` or `doubt`). Injury and suspension mark the player out, doubt marks the player doubt, for that match, club and session only; the latest news for a player wins. The response is the updated `LineupOut` (same shape as `predict_lineup`). The structured path is what the UI preset buttons use. A request with `text` and no player and kind is rejected with 422 ("not available yet") until the LLM parser exists in the pipeline change. A player outside the club, an unknown match or a bad kind is rejected with no state change. Availability lives in memory and is lost on restart.
 
 ### Read-only operations (stable)
 

@@ -55,6 +55,10 @@ The service SHALL accept a structured team-news submission with a match id, club
 - **WHEN** news is submitted for one match
 - **THEN** a prediction for a different match is unchanged
 
+#### Scenario: Sessions are separate
+- **WHEN** news is submitted with one `session_id`
+- **THEN** predictions with another `session_id`, or with the default, are unchanged
+
 #### Scenario: Bad submission
 - **WHEN** the player id does not belong to the club
 - **THEN** the response is 422 naming the player and the club, and a following prediction is unchanged
