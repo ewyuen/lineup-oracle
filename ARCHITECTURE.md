@@ -15,7 +15,7 @@ flowchart LR
     Pipe <-->|parse / explain| LLM["Foundry gpt-4.1-mini"]
     Pipe --> API["FastAPI service"]
     API <--> DB[("Postgres")]
-    MCP["MCP server<br/>predict_lineup"] --> API
+    MCP["MCP server<br/>predict_lineup, submit_team_news, list_matches, get_match_xi"] --> API
     UI["ASP.NET Razor + HTMX UI"] --> API
 ```
 
@@ -83,6 +83,10 @@ Response: formation; 11 players each with position slot, `p_start` and explanati
 
 The UI offers two controls: a preset button that sends a structured event (player, kind), and a free-text box that sends `text` for the LLM to parse. Generated news arrives through replay as text. All three go through the API, which feeds the event into the pipeline and returns the updated lineup, or a rejection message for unparseable free text.
 
+### MCP server (draft)
+
+A thin adapter over the FastAPI service with no logic of its own. Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Any MCP client, such as GitHub Copilot or Claude Desktop, can run the whole flow: submit free-text team news, then read the new XI and explanation. The agent pipeline does not call MCP. It is the first thing cut after Azure polish and Postgres if time runs short.
+
 ### Pipeline stages (draft)
 
 | Stage | In | Out |
@@ -102,4 +106,4 @@ Correct starters out of 11 versus a "same XI as last match" baseline, on held-ou
 - **Event Hubs instead of the in-process queue:** cut unless time allows. Owner: user. Decide by Oct 25 feature freeze.
 - **Postgres schema:** defined in the FastAPI change (change 3).
 - **Formation-to-MILP mapping and formation priors:** defined in the optimizer change (change 2).
-- **Theme fit of a pre-match predictor:** waiting on the sponsor's reply (PLAN.md).
+- **Theme fit of a pre-match predictor:** decided not to ask the sponsor; accepted risk.
