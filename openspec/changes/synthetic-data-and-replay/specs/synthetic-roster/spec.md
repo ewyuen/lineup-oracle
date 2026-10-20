@@ -24,13 +24,10 @@ Each club SHALL have a tactical profile that names its usual formation and a sty
 - **WHEN** a club is read from the roster
 - **THEN** its usual formation is one of the supported formations and its style tag is set
 
-### Requirement: Aliasing without publishing real identities
-The aliasing step SHALL produce the committed roster from a private input and SHALL keep the real-to-synthetic mapping only in the gitignored private folder.
+### Requirement: Seeded invented identities
+The roster SHALL be generated from a seed with no real input, so no real club or player name is ever used.
 
-#### Scenario: Mapping stays private
-- **WHEN** the aliasing step finishes
-- **THEN** the committed roster contains no real club or player name and the mapping file exists only under `private/`
+#### Scenario: Same seed
+- **WHEN** the roster is generated twice with the same seed
+- **THEN** the two roster files are identical
 
-#### Scenario: Name collision with a real name
-- **WHEN** a generated name equals a name in the private real-name list
-- **THEN** the aliasing step generates a different name
