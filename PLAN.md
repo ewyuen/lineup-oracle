@@ -3,13 +3,24 @@
 Status: design agreed in the grill-me session. Final "shared understanding" confirmation still pending, so nothing is built yet.
 
 ## Urgent actions (yours)
-1. Register before **Oct 20, 2026, 12:00 PM PT**.
+1. ~~Register before Oct 20, 2026, 12:00 PM PT.~~ Done.
 2. Email the sponsor (rules section 11.6): "Does a lineup predictor built on a synthetic event pipeline fit the theme?"
 3. Submit by **Oct 27, 2026, 11:59 PM PT**. Plan: freeze features Oct 25, video Oct 26, submit the morning of Oct 27.
-4. Create the new public repo AFTER registering (rules require a project newly created after registration). Move this file and `openspec/` into it.
+4. Create the new repo as **private** now (registration is done, and the rules require a project created after registration). Make it **public before submitting**. Move this file and `openspec/` into it.
 
 Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md
 (Not yet compared with aka.ms/insidethegame or the Reactor page.)
+
+## Outstanding items
+- [ ] Decide: keep or cut Postgres (recommended: cut, or keep for prediction history only).
+- [ ] Decide: the MCP server's role. Only `predict_lineup` calls it, and nothing else uses it.
+- [ ] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
+- [ ] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change.
+- [ ] Add OpenSpec tasks: evals (change 4), OpenTelemetry (change 6), team-news controls (changes 3 and 5).
+- [ ] Demo video task (Oct 26).
+- [ ] Submission checklist: README, repo link, video, architecture diagram.
+- [ ] Make the repo public before submission, and check no `.env`, `private/` or real names are in the history.
+- [ ] Merge the two harness branches (`harness/agent-workflow-rules` first, then `harness/architecture-doc`) and push once the GitHub remote exists.
 
 ## Who builds what (Copilot Pro is monthly: $10 of token-metered AI Credits, so use it sparingly)
 | Tool | Does |
@@ -22,16 +33,9 @@ Rule: a tight OpenSpec task list is what lets a small model build reliably. Do n
 Check your usage on GitHub's billing page now and then. The legacy 300-premium-request plan applies only to annual plans.
 
 ## Design
-- **Data:** all synthetic. A seeded Python generator emits match events plus injury and suspension events. 6 clubs, about 10 matchdays, and a swappable roster file. Clubs and players are invented aliases that keep the real squad structure and use skill archetypes. The real-to-synthetic mapping stays private and gitignored. No crests, logos or photos.
-- **Pipeline:** Microsoft Agent Framework only. Events replay through an in-process async queue with a speed control (Event Hubs only if time is left). Stages: ingest, interpret, pick the XI, explain, personalize.
-- **Prediction:** P(start) is a transparent weighted score with no trained model. A SciPy MILP runs once per formation, weighted by the club's formation prior. Deterministic code picks the XI. The LLM only parses team news and writes explanations. If the LLM fails, the XI still returns with a template explanation.
-- **Model:** gpt-4.1-mini on Foundry, deployment name in an environment variable.
-- **Backend:** FastAPI (Python) returns formation, 11 players with P(start), alternatives per slot, and explanations as JSON. Postgres for storage.
-- **MCP:** a small server exposing `predict_lineup`, built with Copilot.
-- **UI:** ASP.NET Razor Pages + HTMX, an SVG pitch, a live event feed and an explanation panel. Modes are analyst and casual fan, with a favourite-club selector, in English, Spanish and Traditional Chinese.
-- **Azure:** Container Apps (two services), Postgres, Foundry, App Insights, Bicep. Secrets in Container Apps secrets and an uncommitted `.env`, managed identity where possible, a budget alert on the account.
+- **Architecture:** see [ARCHITECTURE.md](ARCHITECTURE.md) (data, pipeline, prediction, model, backend, MCP, UI, Azure, evaluation).
+- **Observability:** OpenTelemetry exported to App Insights (details in ARCHITECTURE.md). Wire it in the Azure change; pipeline spans may come earlier in the pipeline change.
 - **Targets:** Best Multi-Agent System and Best Azure Cloud Native Integration.
-- **Evaluation:** correct starters out of 11 versus a "same XI as last match" baseline, on held-out synthetic matches. It proves the pipeline works, not real-world accuracy. Say so in the demo.
 - **Demo (under 2 minutes):** pick a fixture, see the predicted XI with explanations, inject a late injury, watch the XI update, then switch language and fan mode.
 
 ## OpenSpec changes (one per step; Claude Code proposes, Copilot builds, Claude Code reviews)
@@ -44,6 +48,8 @@ Check your usage on GitHub's billing page now and then. The legacy 300-premium-r
 
 ## Risks
 - A pre-match predictor is not named in the rules. Theme fit (Stage 1, pass/fail) depends on the sponsor's reply.
-- gpt-4.1-mini availability in your region and account is unconfirmed. Make one structured-output call after deploying.
+- gpt-4.1-mini is confirmed available. Still make one structured-output call early to check the parser works.
 - About 8 days solo with two languages, an MCP server and a UI is tight. Cut Event Hubs and the extras first.
 - Do not commit the real-to-synthetic name mapping.
+- Time: about 6 days to the Oct 25 freeze, not 8. Each change needs implementation, tests, human approval, archive, PR and merge. If you slip, cut in this order: Azure polish, Postgres, MCP server, Event Hubs, extra languages.
+- New-repo rule: this repo already has history. Decide whether to move only the final files into the new repo. The official rules have not been read in full.

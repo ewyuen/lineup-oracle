@@ -7,7 +7,7 @@ Every later stage (scoring, optimizer, agents, UI) needs data, and the hackathon
 ## What Changes
 
 - A one-off aliasing step turns a private real squad list (structure only) into a committed synthetic roster for 6 clubs: invented names, shirt numbers, positions, coarse skill archetypes and a club tactical profile.
-- A seeded generator produces about 10 matchdays of synthetic events (passes, shots, tackles, possession changes, pressure events, match metadata) plus team-news events (injury, suspension, late fitness doubt) before kick-off.
+- A seeded generator produces about 10 matchdays of synthetic events (passes, shots, tackles, possession changes, pressure events, match metadata) plus team-news events (injury, suspension, late fitness doubt) before kick-off, each written as free text that names the club and player.
 - A replay component emits those events in time order through an async stream with a replay-speed control, so downstream stages see events "as they happen".
 - The real-to-synthetic mapping stays in a gitignored `private/` folder and is never committed.
 
