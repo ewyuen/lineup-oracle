@@ -10,4 +10,4 @@ Hard rules:
 - The model deployment name comes from an environment variable. Never hardcode it.
 - Backend is Python (FastAPI). UI is ASP.NET Razor Pages + HTMX.
 - Every change includes unit tests, is built on a branch `feature/<change-name>` (never main), and stops for human approval after tests pass. Once approved, run the OpenSpec archive, then create a PR and merge it; never archive or merge before approval.
-- Harness changes (agent instructions, OpenSpec config, skills, prompts) go on `harness/<name>`, merged to main by PR. Feature branches also merge to main, never into each other.
+- Harness changes (agent instructions, OpenSpec config, skills, prompts) go on `harness/<name>`, merged to main by PR only after the user approves. Feature branches also merge to main, never into each other.
