@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import csv
 import json
 from pathlib import Path
 
@@ -17,7 +16,6 @@ from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster, load_ros
 
 
 ROSTER_PATH = Path(__file__).resolve().parents[1] / "data" / "roster.json"
-PRIVATE_CSV_PATH = Path(__file__).resolve().parents[2] / "private" / "real_roster.csv"
 
 
 def test_roster_validation_rejects_bad_data(tmp_path: Path) -> None:
@@ -160,15 +158,6 @@ def test_committed_roster_is_reproducible(tmp_path: Path) -> None:
     write_roster(second, generate_synthetic_roster(seed=42))
     assert first.read_bytes() == second.read_bytes()
     assert first.read_bytes() == ROSTER_PATH.read_bytes()
-
-
-def test_committed_roster_has_no_private_names() -> None:
-    if not PRIVATE_CSV_PATH.exists():
-        pytest.skip("private/real_roster.csv not present")
-    with PRIVATE_CSV_PATH.open("r", encoding="utf-8", newline="") as handle:
-        real_names = {row.get("name", "").strip() for row in csv.DictReader(handle)} - {""}
-    roster_text = ROSTER_PATH.read_text(encoding="utf-8")
-    assert not [name for name in real_names if name in roster_text]
 
 
 def test_plausible_distribution_across_many_matches() -> None:

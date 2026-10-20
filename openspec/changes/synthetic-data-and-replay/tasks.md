@@ -12,7 +12,7 @@
 ## 2. Synthetic roster
 
 - [x] 2.1 Define roster dataclasses and a loader with the validation in the roster spec; verify unit tests cover duplicate shirt numbers, a missing position and a valid roster
-- [x] 2.2 Write `backend/tools/alias_roster.py`; verify running it with a seed writes `backend/data/roster.json`
+- [x] 2.2 Add `python -m lineup_oracle.roster --seed N`; verify running it writes `backend/data/roster.json`
 - [x] 2.3 Add a test that regenerating with the same seed gives an identical committed roster file
 - [x] 2.4 ~~Generate the roster from private real input~~ Not needed: the committed seeded roster is used and loads through 2.1 with at least 20 players per club
 

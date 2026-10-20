@@ -192,3 +192,13 @@ def write_roster(path: str | Path, roster: Roster) -> None:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(json.dumps(roster.to_dict(), indent=2), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Write the seeded synthetic roster.")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--out", default="backend/data/roster.json")
+    args = parser.parse_args()
+    write_roster(args.out, generate_synthetic_roster(seed=args.seed))
