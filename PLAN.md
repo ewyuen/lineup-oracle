@@ -21,7 +21,7 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 - [ ] Submission checklist: README, repo link, video, architecture diagram.
 - [ ] Make the repo public before submission, and check no `.env`, `private/` or real names are in the history.
 - [x] Merge the harness branches and push (PRs #1 to #3 merged).
-- [ ] Delete the merged harness branches, local and remote: `harness/agent-workflow-rules`, `harness/architecture-doc`, `harness/read-architecture-rule`.
+- [x] Delete the merged harness branches, local and remote: `harness/agent-workflow-rules`, `harness/architecture-doc`, `harness/read-architecture-rule`.
 
 ## Who builds what (Copilot Pro is monthly: $10 of token-metered AI Credits, so use it sparingly)
 | Tool | Does |
