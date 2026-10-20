@@ -14,13 +14,14 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 ## Outstanding items
 - [ ] Decide: keep or cut Postgres (recommended: cut, or keep for prediction history only).
 - [ ] Decide: the MCP server's role. Only `predict_lineup` calls it, and nothing else uses it.
-- [ ] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
+- [x] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
 - [ ] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change.
 - [ ] Add OpenSpec tasks: evals (change 4), OpenTelemetry (change 6), team-news controls (changes 3 and 5).
 - [ ] Demo video task (Oct 26).
 - [ ] Submission checklist: README, repo link, video, architecture diagram.
 - [ ] Make the repo public before submission, and check no `.env`, `private/` or real names are in the history.
-- [ ] Merge the two harness branches (`harness/agent-workflow-rules` first, then `harness/architecture-doc`) and push once the GitHub remote exists.
+- [x] Merge the harness branches and push (PRs #1 to #3 merged).
+- [ ] Delete the merged harness branches, local and remote: `harness/agent-workflow-rules`, `harness/architecture-doc`, `harness/read-architecture-rule`.
 
 ## Who builds what (Copilot Pro is monthly: $10 of token-metered AI Credits, so use it sparingly)
 | Tool | Does |
