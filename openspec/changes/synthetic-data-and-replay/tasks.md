@@ -1,5 +1,9 @@
 # Tasks
 
+## 0. Branch
+
+- [x] 0.1 Create the feature branch `feature/synthetic-data-and-replay` from main
+
 ## 1. Backend scaffold
 
 - [ ] 1.1 Create `backend/` with `pyproject.toml` (Python 3.12, pytest dev dependency) and the package `lineup_oracle`; verify `pytest` runs and reports zero tests collected without error
@@ -30,3 +34,5 @@
 ## 5. Wrap-up
 
 - [ ] 5.1 Run the full test suite and `openspec validate synthetic-data-and-replay`; verify both pass
+- [ ] 5.2 Compare the implemented event schema with ARCHITECTURE.md and update ARCHITECTURE.md in this branch if they differ; verify the schema table matches `design.md` and the code
+- [ ] 5.3 Human approval gate: summarize test results and stop for user approval; after approval run `/opsx:archive`, then open a PR from this branch to main and merge it
