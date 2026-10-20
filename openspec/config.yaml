@@ -36,9 +36,9 @@ githubCopilot:
 context: |
   Hackathon project "Lineup Oracle" (Microsoft x Premier League "Inside the Game"); see PLAN.md.
   Backend Python (FastAPI, SciPy MILP, Microsoft Agent Framework only; no LangGraph/AutoGen).
-  UI is ASP.NET Razor Pages + HTMX. Azure Container Apps, Postgres, Foundry gpt-4.1-mini (model name from env var).
-  All data is synthetic (rule 4.7): invented club/player names, no crests/logos/photos; the real-to-synthetic
-  mapping is private and never committed. Deterministic code picks the XI; the LLM only parses and explains,
+  UI is ASP.NET Razor Pages + HTMX. Azure Container Apps, Foundry gpt-4.1-mini (model name from env var).
+  All data is synthetic (rule 4.7): invented club/player names, no crests/logos/photos; no real
+  names anywhere. Deterministic code picks the XI; the LLM only parses and explains,
   and the API must still return an XI if the LLM fails. Solo build, about 8 days: keep changes small.
 
 rules:
@@ -50,7 +50,7 @@ rules:
     - Include unit tests for the change's new logic as explicit tasks, and a final task that runs the full test suite.
     - If the change alters a contract or component, include a task to update ARCHITECTURE.md in the same PR.
     - First task creates the feature branch feature/<change-name>.
-    - Last task is a human approval gate (HITL): stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it.
+    - "Last task is a human approval gate (HITL): stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it."
 
 operations:
   apply:
