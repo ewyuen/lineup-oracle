@@ -9,6 +9,7 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
 from lineup_oracle.api import create_app
+from lineup_oracle.pipeline import Pipeline  # Pipeline() has no model, whatever LINEUP_LLM_* is set to
 from lineup_oracle.events import generate_fixtures, generate_match_events
 from lineup_oracle.mcp_server import _default_client, create_server
 from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster
@@ -19,7 +20,7 @@ EVENTS = generate_match_events(ROSTER, generate_fixtures(CLUB_NAMES), seed=42)
 
 
 def _server():
-    app = create_app(State(ROSTER, copy.deepcopy(EVENTS)))
+    app = create_app(State(ROSTER, copy.deepcopy(EVENTS)), Pipeline())
     return create_server(lambda: httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api"))
 
 

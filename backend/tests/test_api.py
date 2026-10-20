@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lineup_oracle.api import create_app
+from lineup_oracle.pipeline import Pipeline  # Pipeline() has no model, whatever LINEUP_LLM_* is set to
 from lineup_oracle.events import generate_fixtures, generate_match_events, write_events
 from lineup_oracle.explain import explain
 from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster, write_roster
@@ -22,7 +23,7 @@ def state() -> State:
 
 @pytest.fixture
 def client(state: State) -> TestClient:
-    return TestClient(create_app(state))
+    return TestClient(create_app(state, Pipeline()))
 
 
 def _match(client, matchday=4):
@@ -110,7 +111,7 @@ def test_prediction_deterministic(client):
 
 
 def test_own_xi_is_never_used(state):
-    client = TestClient(create_app(state))
+    client = TestClient(create_app(state, Pipeline()))
     match = _match(client)
     before = _predict(client, match).json()
     meta = state.metadata[match["match_id"]].payload
@@ -178,12 +179,13 @@ def test_doubt_is_explained(client):
     assert "Fitness doubt" in shown["explanation"]
 
 
-def test_free_text_rejected(client):
+def test_free_text_rejected_when_model_off(client):
     match = _match(client)
     before = _predict(client, match).json()
     response = client.post("/team_news", json={"match_id": match["match_id"], "club": match["home_club"], "text": "Hugo Ash is out"})
-    assert response.status_code == 422 and "not available yet" in response.json()["detail"]
+    assert response.status_code == 422 and "unavailable" in response.json()["detail"]
     assert _predict(client, match).json() == before
+    assert before["llm_used"] is False
 
 
 # --- review fixes -----------------------------------------------------
@@ -211,7 +213,7 @@ def test_stale_or_mismatched_events_fail_at_startup():
 def test_concurrent_news_is_not_lost(state):
     from concurrent.futures import ThreadPoolExecutor
 
-    client = TestClient(create_app(state))
+    client = TestClient(create_app(state, Pipeline()))
     match = _match(client)
     club = ROSTER.clubs[match["home_club"]]
     victims = [p.id for p in club.players if p.position in ("DEF", "MID")][:8]

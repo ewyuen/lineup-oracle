@@ -32,7 +32,7 @@ The clubs, players, matches and team news are invented and generated from a seed
 | Synthetic roster, event generator and replay | Built |
 | P(start) scoring and XI optimizer | Built |
 | FastAPI service and MCP server | Built |
-| Agent pipeline and LLM explanations | Planned |
+| Agent pipeline and LLM explanations | Built |
 | Razor Pages and HTMX UI | Planned |
 | Azure deployment (Bicep) | Planned |
 

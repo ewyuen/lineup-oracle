@@ -40,6 +40,13 @@ The generator draws each true XI with weight `quality ** 4`, so better players s
 
 ## API and MCP server
 
-Run the API from `backend/`: `uvicorn lineup_oracle.api:create_app --factory` (port 8000). It loads `data/roster.json` and `data/events.jsonl` if present, otherwise generates the same data in memory from seed 42. Regenerate the events file with the command above if it was made before the `matchday` field existed. Operations: `GET /matches`, `GET /matches/{match_id}/xi`, `POST /predict_lineup`, `POST /team_news`, `GET /health`. Team news accepts a player id and a kind (`injury`, `suspension`, `doubt`); free text is rejected until the LLM parser exists. Availability is in memory only and kept per `session_id` (default `"default"`), so separate visitors do not affect each other.
+Run the API from `backend/`: `uvicorn lineup_oracle.api:create_app --factory` (port 8000). It loads `data/roster.json` and `data/events.jsonl` if present, otherwise generates the same data in memory from seed 42. Regenerate the events file with the command above if it was made before the `matchday` field existed. Operations: `GET /matches`, `GET /matches/{match_id}/xi`, `POST /predict_lineup`, `POST /team_news`, `GET /health`. Team news accepts a player id and a kind (`injury`, `suspension`, `doubt`); free text goes to the LLM parser when the model is configured (otherwise it is rejected with 422). Availability is in memory only and kept per `session_id` (default `"default"`), so separate visitors do not affect each other.
 
 Run the MCP server (stdio) with `python -m lineup_oracle.mcp_server`. It forwards four tools to the API at `LINEUP_API_URL` (default `http://127.0.0.1:8000`).
+
+## LLM pipeline and evals
+
+The model is optional. Set `LINEUP_LLM_ENDPOINT` and `LINEUP_LLM_DEPLOYMENT` (and `LINEUP_LLM_API_KEY`, or sign in for `DefaultAzureCredential`; `LINEUP_LLM_TIMEOUT` defaults to 15 seconds) to turn on free-text team news parsing and model-written explanations in the chosen mode and language. Without them, or on any model failure, the API returns the same XI with English template explanations and `llm_used` false.
+
+- `python -m lineup_oracle.llm --check` makes live calls (parse one line, explain in en, es and zh-Hant).
+- `python -m lineup_oracle.evals [--parser]` prints the lineup score against the previous-match baseline; `--parser` also scores the news parser and needs the model.
