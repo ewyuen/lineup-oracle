@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -26,10 +27,15 @@ class State:
     players: dict[str, Player] = field(init=False)
     # (match_id, club) -> {player_id: "out" | "doubt"}; in memory only, lost on restart
     availability: dict[tuple[str, str], dict[str, str]] = field(default_factory=dict)
+    lock: threading.Lock = field(default_factory=threading.Lock)  # held while news is checked and saved
 
     def __post_init__(self) -> None:
         self.metadata = {e.match_id: e for e in self.events if e.type == "match_metadata"}
         self.players = {p.id: p for club in self.roster.clubs.values() for p in club.players}
+        for match_id, e in self.metadata.items():
+            xi = e.payload.get("home_xi", []) + e.payload.get("away_xi", [])
+            if "matchday" not in e.payload or not set(xi) <= self.players.keys():
+                raise ValueError(f"Events file is out of date or does not match the roster (match {match_id}); regenerate it")
 
     @classmethod
     def load(cls, data_dir: Path = DATA_DIR) -> State:

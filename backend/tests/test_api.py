@@ -184,3 +184,38 @@ def test_free_text_rejected(client):
     response = client.post("/team_news", json={"match_id": match["match_id"], "club": match["home_club"], "text": "Hugo Ash is out"})
     assert response.status_code == 422 and "not available yet" in response.json()["detail"]
     assert _predict(client, match).json() == before
+
+
+# --- review fixes -----------------------------------------------------
+
+
+def test_validation_errors_are_one_text_message(client):
+    match = _match(client)
+    body = _predict(client, match, mode="coach")
+    assert body.status_code == 422
+    detail = body.json()["detail"]
+    assert isinstance(detail, str) and "mode" in detail
+
+
+def test_stale_or_mismatched_events_fail_at_startup():
+    stale = copy.deepcopy(EVENTS)
+    next(e for e in stale if e.type == "match_metadata").payload.pop("matchday")
+    with pytest.raises(ValueError, match="out of date"):
+        State(ROSTER, stale)
+    other = copy.deepcopy(EVENTS)
+    next(e for e in other if e.type == "match_metadata").payload["home_xi"][0] = "ghost-1"
+    with pytest.raises(ValueError, match="does not match the roster"):
+        State(ROSTER, other)
+
+
+def test_concurrent_news_is_not_lost(state):
+    from concurrent.futures import ThreadPoolExecutor
+
+    client = TestClient(create_app(state))
+    match = _match(client)
+    club = ROSTER.clubs[match["home_club"]]
+    victims = [p.id for p in club.players if p.position in ("DEF", "MID")][:8]
+    with ThreadPoolExecutor(8) as pool:
+        codes = list(pool.map(lambda pid: _news(client, match, pid, "doubt").status_code, victims))
+    assert codes == [200] * 8
+    assert set(state.availability[(match["match_id"], match["home_club"])]) == set(victims)

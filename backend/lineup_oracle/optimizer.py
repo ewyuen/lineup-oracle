@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -11,6 +12,9 @@ from .roster import SUPPORTED_FORMATIONS, Club, Player
 USUAL_PRIOR = 1.0
 OTHER_PRIOR = 0.85
 ALTERNATIVES = 2
+# HiGHS (inside SciPy) can crash the process when a thread that used it exits, and web request
+# threads come and go. So every solve runs on one thread that lives as long as the process.
+_SOLVER = ThreadPoolExecutor(max_workers=1, thread_name_prefix="milp")
 POSITIONS = ("GK", "DEF", "MID", "FWD")
 
 
@@ -34,13 +38,14 @@ def solve_formation(club: Club, scores: dict[str, float], formation: str) -> lis
     counts = _formation_counts(formation)
     rows = np.array([[1.0 if p.position == pos else 0.0 for p in pool] for pos in POSITIONS])
     need = np.array([counts[pos] for pos in POSITIONS], dtype=float)
-    result = milp(
+    result = _SOLVER.submit(
+        milp,
         c=-value,
         constraints=LinearConstraint(rows, need, need),
         integrality=np.ones(n),
         bounds=Bounds(0, 1),
         options={"mip_rel_gap": 0},  # exact optimum, so the id tie-break holds
-    )
+    ).result()
     if not result.success:
         return None
     return [p for p, x in zip(pool, result.x) if x > 0.5]

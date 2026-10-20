@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from .explain import explain
@@ -90,6 +92,12 @@ def create_app(state: State | None = None) -> FastAPI:
     app = FastAPI(title="Lineup Oracle")
     app.state.lineup = state or State.load()
 
+    @app.exception_handler(RequestValidationError)
+    def bad_request(_: Request, err: RequestValidationError) -> JSONResponse:
+        # One text message, like every other error, instead of FastAPI's list of objects.
+        message = "; ".join(f"{e['loc'][-1]}: {e['msg']}" for e in err.errors())
+        return JSONResponse({"detail": message}, status_code=422)
+
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok"}
@@ -120,17 +128,18 @@ def create_app(state: State | None = None) -> FastAPI:
     @app.post("/team_news", response_model=LineupOut)
     def team_news(req: TeamNewsRequest) -> LineupOut:
         s: State = app.state.lineup
-        if req.text is not None and (req.player_id is None or req.kind is None):
-            raise HTTPException(422, FREE_TEXT_MESSAGE)
-        if req.player_id is None or req.kind is None:
-            raise HTTPException(422, "A player_id and a kind are required")
-        _match(s, req.match_id)
-        club = s.roster.clubs.get(req.club)
-        if club is None or req.player_id not in {p.id for p in club.players}:
-            raise HTTPException(422, f"Player {req.player_id!r} does not belong to club {req.club!r}")
-        updated = {**s.availability.get((req.match_id, req.club), {}), req.player_id: STATUS_OF_KIND[req.kind]}
-        lineup = _lineup(s, req, updated)  # raises before any state changes
-        s.availability[(req.match_id, req.club)] = updated
-        return lineup
+        with s.lock:  # one writer at a time, so two submits cannot overwrite each other
+            if req.text is not None and (req.player_id is None or req.kind is None):
+                raise HTTPException(422, FREE_TEXT_MESSAGE)
+            if req.player_id is None or req.kind is None:
+                raise HTTPException(422, "A player_id and a kind are required")
+            _match(s, req.match_id)
+            club = s.roster.clubs.get(req.club)
+            if club is None or req.player_id not in {p.id for p in club.players}:
+                raise HTTPException(422, f"Player {req.player_id!r} does not belong to club {req.club!r}")
+            updated = {**s.availability.get((req.match_id, req.club), {}), req.player_id: STATUS_OF_KIND[req.kind]}
+            lineup = _lineup(s, req, updated)  # raises before any state changes
+            s.availability[(req.match_id, req.club)] = updated
+            return lineup
 
     return app
