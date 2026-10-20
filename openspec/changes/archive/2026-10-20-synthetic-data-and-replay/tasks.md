@@ -35,4 +35,4 @@
 
 - [x] 5.1 Run the full test suite and `openspec validate synthetic-data-and-replay`; verify both pass
 - [x] 5.2 Compare the implemented event schema with ARCHITECTURE.md and update ARCHITECTURE.md in this branch if they differ; verify the schema table matches `design.md` and the code
-- [ ] 5.3 Human approval gate: summarize test results and stop for user approval; after approval run `/opsx:archive`, then open a PR from this branch to main and merge it
+- [x] 5.3 Human approval gate: summarize test results and stop for user approval; after approval run `/opsx:archive`, then open a PR from this branch to main and merge it
