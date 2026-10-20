@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="AppTitle" xml:space="preserve"><value>Lineup Oracle</value></data>
+  <data name="AppSubtitle" xml:space="preserve"><value>Predicted starting XI</value></data>
+  <data name="Mode" xml:space="preserve"><value>Mode</value></data>
+  <data name="Analyst" xml:space="preserve"><value>Analyst</value></data>
+  <data name="Fan" xml:space="preserve"><value>Fan</value></data>
+  <data name="Language" xml:space="preserve"><value>Language</value></data>
+  <data name="English" xml:space="preserve"><value>English</value></data>
+  <data name="Spanish" xml:space="preserve"><value>Spanish</value></data>
+  <data name="TraditionalChinese" xml:space="preserve"><value>Traditional Chinese</value></data>
+  <data name="Fixtures" xml:space="preserve"><value>Fixtures</value></data>
+  <data name="ChooseFixture" xml:space="preserve"><value>Choose a fixture</value></data>
+  <data name="ChooseClub" xml:space="preserve"><value>Choose a club</value></data>
+  <data name="Home" xml:space="preserve"><value>Home</value></data>
+  <data name="Away" xml:space="preserve"><value>Away</value></data>
+  <data name="Favourite" xml:space="preserve"><value>Favourite</value></data>
+  <data name="MarkFavourite" xml:space="preserve"><value>Mark as favourite</value></data>
+  <data name="TeamNews" xml:space="preserve"><value>Team news</value></data>
+  <data name="TeamNewsHelp" xml:space="preserve"><value>Report a player injury, suspension, doubt, or enter team news.</value></data>
+  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>Enter team news</value></data>
+  <data name="Submit" xml:space="preserve"><value>Submit</value></data>
+  <data name="Retry" xml:space="preserve"><value>Retry</value></data>
+  <data name="ServiceUnavailable" xml:space="preserve"><value>Service unavailable. The last lineup remains on screen.</value></data>
+  <data name="Formation" xml:space="preserve"><value>Formation</value></data>
+  <data name="Lineup" xml:space="preserve"><value>Starting lineup</value></data>
+  <data name="Forwards" xml:space="preserve"><value>Forwards</value></data>
+  <data name="Midfielders" xml:space="preserve"><value>Midfielders</value></data>
+  <data name="Defenders" xml:space="preserve"><value>Defenders</value></data>
+  <data name="Goalkeeper" xml:space="preserve"><value>Goalkeeper</value></data>
+  <data name="Alternatives" xml:space="preserve"><value>Alternatives</value></data>
+  <data name="Injure" xml:space="preserve"><value>Injure</value></data>
+  <data name="Suspend" xml:space="preserve"><value>Suspend</value></data>
+  <data name="Doubt" xml:space="preserve"><value>Doubt</value></data>
+  <data name="PStart" xml:space="preserve"><value>P(start)</value></data>
+  <data name="Template" xml:space="preserve"><value>Template</value></data>
+  <data name="AI" xml:space="preserve"><value>AI</value></data>
+  <data name="MatchdayFixture" xml:space="preserve"><value>Matchday {0}: {1} vs {2}</value></data>
+  <data name="Matchday" xml:space="preserve"><value>Matchday {0}</value></data>
+  <data name="TierCount" xml:space="preserve"><value>{0}, {1}</value></data>
+  <data name="NewsSubmitted" xml:space="preserve"><value>Team news submitted; XI updated</value></data>
+  <data name="MarkedUpdated" xml:space="preserve"><value>{0} marked {1}; XI updated</value></data>
+  <data name="InjuryPast" xml:space="preserve"><value>injured</value></data>
+  <data name="SuspensionPast" xml:space="preserve"><value>suspended</value></data>
+  <data name="DoubtPast" xml:space="preserve"><value>marked doubtful</value></data>
+  <data name="NoFixtures" xml:space="preserve"><value>No fixtures are available.</value></data>
+  <data name="NoLineup" xml:space="preserve"><value>Select a fixture and club to see a lineup.</value></data>
+  <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>Probabilities and explanation source shown.</value></data>
+  <data name="ModeDescriptionFan" xml:space="preserve"><value>Names and plain explanations only.</value></data>
+</root>

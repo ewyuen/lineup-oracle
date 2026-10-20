@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="AppTitle" xml:space="preserve"><value>Lineup Oracle</value></data>
+  <data name="AppSubtitle" xml:space="preserve"><value>預測先發陣容</value></data>
+  <data name="Mode" xml:space="preserve"><value>模式</value></data>
+  <data name="Analyst" xml:space="preserve"><value>分析</value></data>
+  <data name="Fan" xml:space="preserve"><value>球迷</value></data>
+  <data name="Language" xml:space="preserve"><value>語言</value></data>
+  <data name="English" xml:space="preserve"><value>英文</value></data>
+  <data name="Spanish" xml:space="preserve"><value>西班牙文</value></data>
+  <data name="TraditionalChinese" xml:space="preserve"><value>繁體中文</value></data>
+  <data name="Fixtures" xml:space="preserve"><value>賽事</value></data>
+  <data name="ChooseFixture" xml:space="preserve"><value>選擇賽事</value></data>
+  <data name="ChooseClub" xml:space="preserve"><value>選擇球會</value></data>
+  <data name="Home" xml:space="preserve"><value>主場</value></data>
+  <data name="Away" xml:space="preserve"><value>作客</value></data>
+  <data name="Favourite" xml:space="preserve"><value>最愛</value></data>
+  <data name="MarkFavourite" xml:space="preserve"><value>設為最愛球會</value></data>
+  <data name="TeamNews" xml:space="preserve"><value>球隊消息</value></data>
+  <data name="TeamNewsHelp" xml:space="preserve"><value>回報球員受傷、停賽或上陣成疑，亦可輸入球隊消息。</value></data>
+  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>輸入球隊消息</value></data>
+  <data name="Submit" xml:space="preserve"><value>提交</value></data>
+  <data name="Retry" xml:space="preserve"><value>重試</value></data>
+  <data name="ServiceUnavailable" xml:space="preserve"><value>服務暫時無法使用。畫面會保留上一個陣容。</value></data>
+  <data name="Formation" xml:space="preserve"><value>陣式</value></data>
+  <data name="Lineup" xml:space="preserve"><value>先發陣容</value></data>
+  <data name="Forwards" xml:space="preserve"><value>前鋒</value></data>
+  <data name="Midfielders" xml:space="preserve"><value>中場</value></data>
+  <data name="Defenders" xml:space="preserve"><value>後衛</value></data>
+  <data name="Goalkeeper" xml:space="preserve"><value>守門員</value></data>
+  <data name="Alternatives" xml:space="preserve"><value>替補人選</value></data>
+  <data name="Injure" xml:space="preserve"><value>受傷</value></data>
+  <data name="Suspend" xml:space="preserve"><value>停賽</value></data>
+  <data name="Doubt" xml:space="preserve"><value>成疑</value></data>
+  <data name="PStart" xml:space="preserve"><value>先發機率</value></data>
+  <data name="Template" xml:space="preserve"><value>範本</value></data>
+  <data name="AI" xml:space="preserve"><value>AI</value></data>
+  <data name="MatchdayFixture" xml:space="preserve"><value>第 {0} 輪：{1} 對 {2}</value></data>
+  <data name="Matchday" xml:space="preserve"><value>第 {0} 輪</value></data>
+  <data name="TierCount" xml:space="preserve"><value>{0}，{1} 人</value></data>
+  <data name="NewsSubmitted" xml:space="preserve"><value>球隊消息已提交；陣容已更新</value></data>
+  <data name="MarkedUpdated" xml:space="preserve"><value>{0}已{1}；陣容已更新</value></data>
+  <data name="InjuryPast" xml:space="preserve"><value>受傷</value></data>
+  <data name="SuspensionPast" xml:space="preserve"><value>停賽</value></data>
+  <data name="DoubtPast" xml:space="preserve"><value>列為成疑</value></data>
+  <data name="NoFixtures" xml:space="preserve"><value>目前沒有可用賽事。</value></data>
+  <data name="NoLineup" xml:space="preserve"><value>選擇賽事和球會以查看陣容。</value></data>
+  <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>顯示機率和解釋來源。</value></data>
+  <data name="ModeDescriptionFan" xml:space="preserve"><value>只顯示名稱和簡明解釋。</value></data>
+</root>

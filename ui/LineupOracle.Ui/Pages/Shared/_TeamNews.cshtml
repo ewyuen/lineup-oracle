@@ -1,0 +1,28 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<section class="panel news-panel">
+    <h2>@T["TeamNews"]</h2>
+    <p class="muted">@T["TeamNewsHelp"]</p>
+    <form method="post" asp-page="/Index" asp-page-handler="News" class="free-text-form"
+          hx-post="/?handler=News" hx-target="#lineup" hx-swap="outerHTML">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
+        <input type="hidden" name="club" value="@Model.SelectedClub" />
+        <input type="hidden" name="mode" value="@Model.Mode" />
+        <label for="newsText">@T["TeamNews"]</label>
+        <textarea id="newsText" name="newsText" rows="3" placeholder="@T["TeamNewsPlaceholder"]"></textarea>
+        <button class="button button-primary" type="submit">@T["Submit"]</button>
+    </form>
+    <div id="news-message" class="news-message" aria-live="polite">
+        @if (!string.IsNullOrWhiteSpace(Model.NewsMessage))
+        {
+            <p class="success-message">@Model.NewsMessage</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(Model.ApiError))
+        {
+            <p class="error-message">@Model.ApiError</p>
+        }
+    </div>
+</section>
