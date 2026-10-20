@@ -6,3 +6,4 @@ bin/
 obj/
 
 *.egg-info/
+backend/data/events.jsonl

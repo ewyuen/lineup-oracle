@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .roster import Player, Roster, load_roster
+from .roster import Club, Player, Roster, load_roster
 
 
 def _new_id(prefix: str, seq: int) -> str:
@@ -55,8 +55,8 @@ def generate_fixtures(clubs: Iterable[str], matchdays: int = 10) -> list[list[tu
     return _fixture_round_robin(club_list, matchdays)
 
 
-def _pick_true_xi(club_name: str, players: list[Player], rng: random.Random) -> list[Player]:
-    available = [player for player in players if player.position == "GK"] + [player for player in players if player.position == "DEF"] + [player for player in players if player.position == "MID"] + [player for player in players if player.position == "FWD"]
+def _pick_true_xi(players: list[Player], rng: random.Random, unavailable: set[str]) -> list[Player]:
+    available = [player for player in players if player.id not in unavailable]
     chosen: list[Player] = []
     positions = {"GK": 1, "DEF": 4, "MID": 4, "FWD": 2}
     for position, count in positions.items():
@@ -70,43 +70,63 @@ def _sample_count(rng: random.Random, mean: float, spread: float) -> int:
     return max(0, int(round(rng.gauss(mean, spread))))
 
 
-def generate_team_news(roster: Roster, seed: int = 42) -> list[Event]:
-    rng = random.Random(seed)
-    events: list[Event] = []
-    position_ids = {club_name: [player.id for player in club.players] for club_name, club in roster.clubs.items()}
-    for club_name, club in roster.clubs.items():
-        candidates = club.players[:]
-        rng.shuffle(candidates)
-        for offset, kind in [(48.0, "injury"), (24.0, "suspension"), (1.0, "doubt")]:
-            player = candidates.pop(0)
-            text = f"{club_name} have a {kind} concern around {player.name} ahead of the next match."
-            events.append(
-                Event(
-                    id=_new_id("teamnews", len(events) + 1),
-                    match_id=f"match-{club_name.lower()}-{offset}",
-                    type="team_news",
-                    minute=-offset,
-                    club=club_name,
-                    player=None,
-                    payload={"kind": kind, "text": text, "player_name": player.name},
-                    simulated=True,
-                )
+TEAM_NEWS_TEMPLATES: dict[str, list[str]] = {
+    "injury": [
+        "{club} have an injury doubt over {player} ahead of the next match.",
+        "{player} is sidelined with a knock, {club} confirm.",
+        "{club} medical staff have ruled out {player} for now.",
+    ],
+    "suspension": [
+        "{player} serves a suspension for {club} this weekend.",
+        "{club} will be without {player} after a card ban.",
+        "{player} misses the next match for {club} through suspension.",
+    ],
+    "doubt": [
+        "{club} are monitoring {player} after a late fitness check.",
+        "{player} is a fitness doubt for {club} ahead of kick-off.",
+        "{club} say {player} trained lightly and remains in doubt.",
+    ],
+}
+TEAM_NEWS_OFFSETS: list[tuple[float, str]] = [(48.0, "injury"), (24.0, "suspension"), (1.0, "doubt")]
+UNAVAILABLE_KINDS = {"injury", "suspension"}
+
+
+def _append_club_team_news(events: list[Event], club: Club, match_id: str, rng: random.Random) -> set[str]:
+    candidates = club.players[:]
+    rng.shuffle(candidates)
+    unavailable: set[str] = set()
+    for offset, kind in TEAM_NEWS_OFFSETS:
+        player = candidates.pop(0)
+        text = rng.choice(TEAM_NEWS_TEMPLATES[kind]).format(club=club.name, player=player.name)
+        events.append(
+            Event(
+                id=_new_id(f"{club.name}-{match_id}-news", len(events) + 1),
+                match_id=match_id,
+                type="team_news",
+                minute=-offset,
+                club=club.name,
+                player=None,
+                payload={"kind": kind, "text": text, "player_name": player.name},
+                simulated=True,
             )
-    return events
+        )
+        if kind in UNAVAILABLE_KINDS:
+            unavailable.add(player.id)
+    return unavailable
 
 
-def generate_match_metadata(ref_match_id: str, home_club: str, away_club: str, rng: random.Random, roster: Roster) -> dict[str, Any]:
-    home_players = _pick_true_xi(home_club, roster.clubs[home_club].players, rng)
-    away_players = _pick_true_xi(away_club, roster.clubs[away_club].players, rng)
+def generate_match_metadata(ref_match_id: str, home_club: str, away_club: str, rng: random.Random, roster: Roster, unavailable: dict[str, set[str]]) -> dict[str, Any]:
+    home_players = _pick_true_xi(roster.clubs[home_club].players, rng, unavailable.get(home_club, set()))
+    away_players = _pick_true_xi(roster.clubs[away_club].players, rng, unavailable.get(away_club, set()))
     return {
         "id": ref_match_id,
         "match_id": ref_match_id,
-        "schema_version": 1,
         "type": "match_metadata",
         "minute": 0.0,
         "club": "match",
         "player": None,
         "payload": {
+            "schema_version": 1,
             "home_club": home_club,
             "away_club": away_club,
             "home_formation": roster.clubs[home_club].formation,
@@ -125,7 +145,8 @@ def generate_match_events(roster: Roster, fixtures: list[list[tuple[str, str]]],
     for matchday in fixtures:
         for home_club, away_club in matchday:
             match_id = f"match-{match_index:03d}"
-            metadata = generate_match_metadata(match_id, home_club, away_club, rng, roster)
+            unavailable = {club: _append_club_team_news(events, roster.clubs[club], match_id, rng) for club in (home_club, away_club)}
+            metadata = generate_match_metadata(match_id, home_club, away_club, rng, roster, unavailable)
             events.append(Event(**{k: v for k, v in metadata.items() if k in {"id", "match_id", "type", "minute", "club", "player", "payload", "simulated"}}))
             for club in (home_club, away_club):
                 club_players = roster.clubs[club].players
@@ -208,7 +229,7 @@ def write_events(path: str | Path, events: list[Event]) -> None:
 
 
 def generate_seeded_dataset(seed: int = 42) -> tuple[list[Event], list[list[tuple[str, str]]]]:
-    roster = load_roster(Path(__file__).resolve().parent / "data" / "roster.json")
+    roster = load_roster(Path(__file__).resolve().parents[1] / "data" / "roster.json")
     fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)
     events = generate_match_events(roster, fixtures, seed=seed)
     return events, fixtures
@@ -217,9 +238,9 @@ def generate_seeded_dataset(seed: int = 42) -> tuple[list[Event], list[list[tupl
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate synthetic event data")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--out", type=str, default=str(Path(__file__).resolve().parent / "data" / "events.jsonl"))
+    parser.add_argument("--out", type=str, default=str(Path(__file__).resolve().parents[1] / "data" / "events.jsonl"))
     args = parser.parse_args()
-    roster = load_roster(Path(__file__).resolve().parent / "data" / "roster.json")
+    roster = load_roster(Path(__file__).resolve().parents[1] / "data" / "roster.json")
     fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)
     events = generate_match_events(roster, fixtures, seed=args.seed)
     write_events(args.out, events)

@@ -1,21 +1,23 @@
 from __future__ import annotations
 
 import asyncio
+import csv
 import json
 from pathlib import Path
 
 import pytest
 
+import lineup_oracle.replay as replay_module
 from lineup_oracle.events import (
     generate_fixtures,
     generate_match_events,
-    generate_team_news,
 )
-from lineup_oracle.replay import ReplaySession
-from lineup_oracle.roster import CLUB_NAMES, load_roster
+from lineup_oracle.replay import ReplaySession, replay_all_subscribers
+from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster, load_roster, write_roster
 
 
 ROSTER_PATH = Path(__file__).resolve().parents[1] / "data" / "roster.json"
+PRIVATE_CSV_PATH = Path(__file__).resolve().parents[2] / "private" / "real_roster.csv"
 
 
 def test_roster_validation_rejects_bad_data(tmp_path: Path) -> None:
@@ -86,8 +88,8 @@ def test_fixture_generation_and_seeded_determinism() -> None:
     b = generate_match_events(roster, fixtures, seed=42)
     assert a == b
 
-    c = generate_team_news(roster, seed=42)
-    d = generate_team_news(roster, seed=42)
+    c = [e for e in a if e.type == "team_news"]
+    d = [e for e in b if e.type == "team_news"]
     assert c == d
 
 
@@ -113,31 +115,60 @@ def test_match_metadata_uses_true_xi_without_unavailable_players() -> None:
         assert set(home_xi).issubset(home_players)
         assert set(away_xi).issubset(away_players)
 
-        for club_name, club_events in [(payload["home_club"], [e for e in events if e.club == payload["home_club"] and e.type == "team_news"]), (payload["away_club"], [e for e in events if e.club == payload["away_club"] and e.type == "team_news"])]:
-            unavailable = {
-                player_name for event in club_events for player_name in [event.payload.get("player_name")]
-                if player_name is not None
-            }
-            if unavailable:
-                assert not any(
-                    roster.clubs[club_name].players_by_id[pid].name in unavailable
-                    for pid in payload["home_xi" if club_name == payload["home_club"] else "away_xi"]
-                )
+        assert payload["schema_version"] == 1
+        players_by_id = {
+            player.id: player
+            for player in roster.clubs[payload["home_club"]].players + roster.clubs[payload["away_club"]].players
+        }
+        news = [e for e in events if e.match_id == event.match_id and e.type == "team_news"]
+        assert len(news) == 6
+        unavailable_names = {e.payload["player_name"] for e in news if e.payload["kind"] in {"injury", "suspension"}}
+        xi_names = {players_by_id[pid].name for pid in home_xi + away_xi}
+        assert not (xi_names & unavailable_names)
 
 
 def test_team_news_mentions_club_and_player() -> None:
     roster = load_roster(ROSTER_PATH)
-    team_news = generate_team_news(roster, seed=42)
+    fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)
+    team_news = [e for e in generate_match_events(roster, fixtures, seed=42) if e.type == "team_news"]
 
-    assert len(team_news) == 18
+    assert len(team_news) == 30 * 6
+    assert team_news == [e for e in generate_match_events(roster, fixtures, seed=42) if e.type == "team_news"]
     for event in team_news:
-        assert event.type == "team_news"
         assert event.club in CLUB_NAMES
         assert event.player is None
-        assert "payload" in event.to_dict()
+        assert event.payload["kind"] in {"injury", "suspension", "doubt"}
         text = event.payload["text"]
         assert event.club in text
         assert event.payload["player_name"] in text
+
+
+def test_event_schema_fields() -> None:
+    roster = load_roster(ROSTER_PATH)
+    fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)
+    for event in generate_match_events(roster, fixtures, seed=42):
+        data = event.to_dict()
+        assert set(data) == {"id", "match_id", "type", "minute", "club", "player", "payload", "simulated"}
+        assert isinstance(data["minute"], float)
+        assert data["simulated"] is True
+
+
+def test_committed_roster_is_reproducible(tmp_path: Path) -> None:
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    write_roster(first, generate_synthetic_roster(seed=42))
+    write_roster(second, generate_synthetic_roster(seed=42))
+    assert first.read_bytes() == second.read_bytes()
+    assert first.read_bytes() == ROSTER_PATH.read_bytes()
+
+
+def test_committed_roster_has_no_private_names() -> None:
+    if not PRIVATE_CSV_PATH.exists():
+        pytest.skip("private/real_roster.csv not present")
+    with PRIVATE_CSV_PATH.open("r", encoding="utf-8", newline="") as handle:
+        real_names = {row.get("name", "").strip() for row in csv.DictReader(handle)} - {""}
+    roster_text = ROSTER_PATH.read_text(encoding="utf-8")
+    assert not [name for name in real_names if name in roster_text]
 
 
 def test_plausible_distribution_across_many_matches() -> None:
@@ -197,18 +228,37 @@ def test_replay_order_instant_delivery_and_injection() -> None:
     asyncio.run(_run())
 
 
-def test_replay_under_two_minutes_for_demo_speed() -> None:
+def test_replay_under_two_minutes_for_demo_speed(monkeypatch: pytest.MonkeyPatch) -> None:
+    waited: list[float] = []
+
+    async def _record_sleep(delay: float) -> None:
+        if delay > 0:
+            waited.append(delay)
+
+    monkeypatch.setattr(replay_module.asyncio, "sleep", _record_sleep)
+
     async def _run() -> None:
         session = ReplaySession(
             [
                 {"id": f"evt-{minute:02d}", "minute": float(minute), "payload": {"kind": "pass"}}
                 for minute in range(0, 91, 1)
             ],
-            speed=60.0,
+            speed=1.0,
         )
-        start = asyncio.get_running_loop().time()
         await session.run()
-        elapsed = asyncio.get_running_loop().time() - start
-        assert elapsed < 120
+
+    asyncio.run(_run())
+    assert sum(waited) == pytest.approx(90.0)
+    assert sum(waited) < 120
+
+
+def test_multiple_subscribers_receive_identical_sequences() -> None:
+    async def _run() -> None:
+        events = [{"id": f"e-{minute:02d}", "minute": float(minute), "payload": {}} for minute in range(20)]
+        queues, emitted = await replay_all_subscribers(events, speed=0)
+        sequences = [[queue.get_nowait()["id"] for _ in range(queue.qsize())] for queue in queues]
+        expected = [event["id"] for event in events]
+        assert sequences[0] == sequences[1] == expected
+        assert [event["id"] for event in emitted] == expected
 
     asyncio.run(_run())
