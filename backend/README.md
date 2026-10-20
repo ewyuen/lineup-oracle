@@ -1,0 +1,31 @@
+# Backend
+
+This backend contains the synthetic roster generator, event generation, and replay logic used by Lineup Oracle.
+
+## Event generation
+
+Run from the `backend/` folder:
+
+```bash
+cd backend
+python -m lineup_oracle.events --seed 42 --out data/events.jsonl
+```
+
+The generated file contains one JSON event per line. Each event includes:
+- `id`
+- `match_id`
+- `type` (`pass`, `shot`, `tackle`, `possession_change`, `pressure`, `team_news`, `match_metadata`)
+- `minute`
+- `club`
+- `player`
+- `payload`
+- `simulated`
+
+Team-news events carry `payload.kind` and `payload.player_name` as answer labels for the parser eval (the parser must not read them). They use free text inside the `payload.text` field and are emitted before kick-off with negative minutes (-48, -24 and -1). Each match has an injury, a suspension and a fitness doubt per club. Injured and suspended players are excluded from that match's true XI, which is stored in the `match_metadata` event (`payload.schema_version` is 1; `payload.matchday` is 1 to 10). Minutes are relative to each match's kick-off, so every match shares the same time axis: replay one match at a time (filter on `match_id`), not the whole file.
+
+## Replay speed
+
+Replay speed is controlled by the `speed` parameter, measured in match minutes per real second:
+- `speed=0` delivers every event immediately (used in tests).
+- `speed=1.0` (the default and demo speed) replays a 90-minute match in about 90 seconds. Pre-kick-off team news (negative minutes) is delivered without waiting, so a whole match including its news still takes about 90 seconds.
+- Higher values compress the timeline further, for example `speed=60` replays a match in 1.5 seconds.

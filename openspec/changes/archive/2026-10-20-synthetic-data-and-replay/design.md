@@ -23,12 +23,10 @@ Greenfield repo: no code yet. See proposal.md for why. Python backend lives in `
 - **Determinism:** one `random.Random(seed)` passed through the generator, never the global RNG. Alternative: numpy generators. Rejected as an extra dependency.
 - **Generation model:** per match, draw an actual XI from available players (position-weighted by a hidden "starter-ness" derived from the archetype and recent minutes), then draw event counts per team from Poisson-like distributions scaled by team style, and distribute them over minutes. This keeps the "true" XI known, which the evaluation change needs as ground truth.
 - **Team news:** emitted at fixed offsets before kick-off (for example 48 h, 24 h, 1 h) and simulated; an unavailable player is excluded from the true XI. Each event is free text in `payload.text`, rendered from a few seeded templates per kind (injury, suspension, doubt) that name the club and the player. `player` stays null so the LLM parser has to read the name from the text. The structured truth is the true XI in the match metadata, which the evaluation uses.
-- **Roster aliasing:** a script `backend/tools/alias_roster.py` reads `private/real_roster.csv` (club, number, position, role) and writes the synthetic `roster.json` and `private/mapping.json`. Names come from seeded syllable lists. A generated name is rejected if it appears in the private real-name list. Ratings come from archetype templates plus seeded noise. Only `roster.json` is committed.
+- **Roster generation:** `python -m lineup_oracle.roster` writes the synthetic `roster.json` from a seed alone, with no real input. Names come from seeded name lists, and ratings come from archetype templates plus seeded noise.
 - **Replay:** an async generator over a time-sorted list with a virtual clock; `speed=0` skips waiting. Subscribers get their own `asyncio.Queue` fed by one pump task. Late events go into a heap so ordering holds. Alternative: a message broker. Rejected for the hackathon scope.
 
 ## Risks / Trade-offs
 
 - [Synthetic data looks fake] → Check plausible ranges in a test and tune distributions by eye on a few matches.
-- [Real roster input is not available when building] → Provide a tiny fake `private/real_roster.csv` template so the script and tests run without real data.
-- [Name collisions or look-alikes with real names] → Reject exact matches only; review a sample of names by hand before publishing.
 - [Event schema changes later] → Keep it flat and versioned with a `schema_version` field in match metadata.

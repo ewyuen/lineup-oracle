@@ -1,0 +1,1846 @@
+{
+  "clubs": [
+    {
+      "name": "Harbor City",
+      "formation": "4-3-3",
+      "style": "pressing",
+      "players": [
+        {
+          "id": "harbor-city-1",
+          "club": "Harbor City",
+          "name": "Hugo Ash",
+          "number": 1,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 72,
+            "passing": 70,
+            "dribbling": 69,
+            "defending": 63,
+            "shooting": 61
+          }
+        },
+        {
+          "id": "harbor-city-2",
+          "club": "Harbor City",
+          "name": "Xena Crest",
+          "number": 2,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 92,
+            "passing": 82,
+            "dribbling": 57,
+            "defending": 56,
+            "shooting": 60
+          }
+        },
+        {
+          "id": "harbor-city-3",
+          "club": "Harbor City",
+          "name": "Nico Hale",
+          "number": 3,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 87,
+            "passing": 56,
+            "dribbling": 90,
+            "defending": 67,
+            "shooting": 89
+          }
+        },
+        {
+          "id": "harbor-city-4",
+          "club": "Harbor City",
+          "name": "Mira Hale",
+          "number": 4,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 83,
+            "passing": 92,
+            "dribbling": 72,
+            "defending": 55,
+            "shooting": 65
+          }
+        },
+        {
+          "id": "harbor-city-5",
+          "club": "Harbor City",
+          "name": "Nora Kite",
+          "number": 5,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 72,
+            "passing": 64,
+            "dribbling": 68,
+            "defending": 76,
+            "shooting": 61
+          }
+        },
+        {
+          "id": "harbor-city-6",
+          "club": "Harbor City",
+          "name": "Finn Morrow",
+          "number": 6,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 61,
+            "passing": 77,
+            "dribbling": 77,
+            "defending": 71,
+            "shooting": 57
+          }
+        },
+        {
+          "id": "harbor-city-7",
+          "club": "Harbor City",
+          "name": "Pia Rook",
+          "number": 7,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 62,
+            "passing": 79,
+            "dribbling": 60,
+            "defending": 90,
+            "shooting": 73
+          }
+        },
+        {
+          "id": "harbor-city-8",
+          "club": "Harbor City",
+          "name": "Yuri Stone",
+          "number": 8,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 67,
+            "passing": 59,
+            "dribbling": 57,
+            "defending": 69,
+            "shooting": 73
+          }
+        },
+        {
+          "id": "harbor-city-9",
+          "club": "Harbor City",
+          "name": "Finn Eden",
+          "number": 9,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 69,
+            "passing": 61,
+            "dribbling": 79,
+            "defending": 72,
+            "shooting": 84
+          }
+        },
+        {
+          "id": "harbor-city-10",
+          "club": "Harbor City",
+          "name": "Yuri Fenn",
+          "number": 10,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 78,
+            "passing": 77,
+            "dribbling": 68,
+            "defending": 72,
+            "shooting": 59
+          }
+        },
+        {
+          "id": "harbor-city-11",
+          "club": "Harbor City",
+          "name": "Kian Rook",
+          "number": 11,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 70,
+            "passing": 65,
+            "dribbling": 84,
+            "defending": 79,
+            "shooting": 72
+          }
+        },
+        {
+          "id": "harbor-city-12",
+          "club": "Harbor City",
+          "name": "Yara Hale",
+          "number": 12,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 75,
+            "passing": 58,
+            "dribbling": 69,
+            "defending": 57,
+            "shooting": 75
+          }
+        },
+        {
+          "id": "harbor-city-13",
+          "club": "Harbor City",
+          "name": "Liam Iris",
+          "number": 13,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 59,
+            "passing": 68,
+            "dribbling": 91,
+            "defending": 75,
+            "shooting": 68
+          }
+        },
+        {
+          "id": "harbor-city-14",
+          "club": "Harbor City",
+          "name": "Tess Morrow",
+          "number": 14,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 84,
+            "passing": 64,
+            "dribbling": 71,
+            "defending": 63,
+            "shooting": 70
+          }
+        },
+        {
+          "id": "harbor-city-15",
+          "club": "Harbor City",
+          "name": "Yara Rook",
+          "number": 15,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 71,
+            "passing": 92,
+            "dribbling": 82,
+            "defending": 92,
+            "shooting": 80
+          }
+        },
+        {
+          "id": "harbor-city-16",
+          "club": "Harbor City",
+          "name": "Yuri Hale",
+          "number": 16,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 63,
+            "passing": 87,
+            "dribbling": 86,
+            "defending": 60,
+            "shooting": 58
+          }
+        },
+        {
+          "id": "harbor-city-17",
+          "club": "Harbor City",
+          "name": "Hugo Ellis",
+          "number": 17,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 65,
+            "passing": 82,
+            "dribbling": 59,
+            "defending": 79,
+            "shooting": 79
+          }
+        },
+        {
+          "id": "harbor-city-18",
+          "club": "Harbor City",
+          "name": "Pia Quinn",
+          "number": 18,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 71,
+            "passing": 90,
+            "dribbling": 55,
+            "defending": 62,
+            "shooting": 89
+          }
+        },
+        {
+          "id": "harbor-city-19",
+          "club": "Harbor City",
+          "name": "Rafi Briar",
+          "number": 19,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 76,
+            "passing": 62,
+            "dribbling": 73,
+            "defending": 82,
+            "shooting": 65
+          }
+        },
+        {
+          "id": "harbor-city-20",
+          "club": "Harbor City",
+          "name": "Pia Ash",
+          "number": 20,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 71,
+            "passing": 87,
+            "dribbling": 66,
+            "defending": 87,
+            "shooting": 61
+          }
+        }
+      ]
+    },
+    {
+      "name": "Northmere",
+      "formation": "4-4-2",
+      "style": "balanced",
+      "players": [
+        {
+          "id": "northmere-1",
+          "club": "Northmere",
+          "name": "Taro Drift",
+          "number": 1,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 87,
+            "passing": 67,
+            "dribbling": 64,
+            "defending": 78,
+            "shooting": 65
+          }
+        },
+        {
+          "id": "northmere-2",
+          "club": "Northmere",
+          "name": "Xena Briar",
+          "number": 2,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 88,
+            "passing": 55,
+            "dribbling": 75,
+            "defending": 86,
+            "shooting": 56
+          }
+        },
+        {
+          "id": "northmere-3",
+          "club": "Northmere",
+          "name": "Hugo Haven",
+          "number": 3,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 78,
+            "passing": 74,
+            "dribbling": 70,
+            "defending": 58,
+            "shooting": 70
+          }
+        },
+        {
+          "id": "northmere-4",
+          "club": "Northmere",
+          "name": "Zuri Crest",
+          "number": 4,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 60,
+            "passing": 86,
+            "dribbling": 59,
+            "defending": 89,
+            "shooting": 63
+          }
+        },
+        {
+          "id": "northmere-5",
+          "club": "Northmere",
+          "name": "Ivo Wren",
+          "number": 5,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 85,
+            "passing": 90,
+            "dribbling": 65,
+            "defending": 71,
+            "shooting": 88
+          }
+        },
+        {
+          "id": "northmere-6",
+          "club": "Northmere",
+          "name": "Nora Gale",
+          "number": 6,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 89,
+            "passing": 67,
+            "dribbling": 74,
+            "defending": 80,
+            "shooting": 78
+          }
+        },
+        {
+          "id": "northmere-7",
+          "club": "Northmere",
+          "name": "Oona Fern",
+          "number": 7,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 88,
+            "passing": 83,
+            "dribbling": 62,
+            "defending": 70,
+            "shooting": 69
+          }
+        },
+        {
+          "id": "northmere-8",
+          "club": "Northmere",
+          "name": "Evan Kite",
+          "number": 8,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 56,
+            "passing": 92,
+            "dribbling": 90,
+            "defending": 69,
+            "shooting": 92
+          }
+        },
+        {
+          "id": "northmere-9",
+          "club": "Northmere",
+          "name": "Oren Ash",
+          "number": 9,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 59,
+            "passing": 58,
+            "dribbling": 69,
+            "defending": 59,
+            "shooting": 57
+          }
+        },
+        {
+          "id": "northmere-10",
+          "club": "Northmere",
+          "name": "Vega Crest",
+          "number": 10,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 87,
+            "passing": 70,
+            "dribbling": 72,
+            "defending": 86,
+            "shooting": 68
+          }
+        },
+        {
+          "id": "northmere-11",
+          "club": "Northmere",
+          "name": "Xena Ellis",
+          "number": 11,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 91,
+            "passing": 91,
+            "dribbling": 85,
+            "defending": 70,
+            "shooting": 85
+          }
+        },
+        {
+          "id": "northmere-12",
+          "club": "Northmere",
+          "name": "Mira Gale",
+          "number": 12,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 61,
+            "passing": 61,
+            "dribbling": 82,
+            "defending": 77,
+            "shooting": 82
+          }
+        },
+        {
+          "id": "northmere-13",
+          "club": "Northmere",
+          "name": "Mira Oak",
+          "number": 13,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 58,
+            "passing": 61,
+            "dribbling": 58,
+            "defending": 80,
+            "shooting": 76
+          }
+        },
+        {
+          "id": "northmere-14",
+          "club": "Northmere",
+          "name": "Gale Hale",
+          "number": 14,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 67,
+            "passing": 67,
+            "dribbling": 89,
+            "defending": 83,
+            "shooting": 63
+          }
+        },
+        {
+          "id": "northmere-15",
+          "club": "Northmere",
+          "name": "Nora Fenn",
+          "number": 15,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 72,
+            "passing": 84,
+            "dribbling": 70,
+            "defending": 59,
+            "shooting": 83
+          }
+        },
+        {
+          "id": "northmere-16",
+          "club": "Northmere",
+          "name": "Yara Dune",
+          "number": 16,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 58,
+            "passing": 89,
+            "dribbling": 55,
+            "defending": 60,
+            "shooting": 70
+          }
+        },
+        {
+          "id": "northmere-17",
+          "club": "Northmere",
+          "name": "Kian Noble",
+          "number": 17,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 86,
+            "passing": 85,
+            "dribbling": 68,
+            "defending": 80,
+            "shooting": 58
+          }
+        },
+        {
+          "id": "northmere-18",
+          "club": "Northmere",
+          "name": "Kian Morrow",
+          "number": 18,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 55,
+            "passing": 79,
+            "dribbling": 71,
+            "defending": 84,
+            "shooting": 73
+          }
+        },
+        {
+          "id": "northmere-19",
+          "club": "Northmere",
+          "name": "Nora Yarrow",
+          "number": 19,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 90,
+            "passing": 86,
+            "dribbling": 64,
+            "defending": 67,
+            "shooting": 73
+          }
+        },
+        {
+          "id": "northmere-20",
+          "club": "Northmere",
+          "name": "Nico Bale",
+          "number": 20,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 92,
+            "passing": 89,
+            "dribbling": 58,
+            "defending": 75,
+            "shooting": 58
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ravenside",
+      "formation": "3-5-2",
+      "style": "counter",
+      "players": [
+        {
+          "id": "ravenside-1",
+          "club": "Ravenside",
+          "name": "Dax Stone",
+          "number": 1,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 85,
+            "passing": 87,
+            "dribbling": 88,
+            "defending": 65,
+            "shooting": 58
+          }
+        },
+        {
+          "id": "ravenside-2",
+          "club": "Ravenside",
+          "name": "Vale Crest",
+          "number": 2,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 66,
+            "passing": 59,
+            "dribbling": 59,
+            "defending": 70,
+            "shooting": 80
+          }
+        },
+        {
+          "id": "ravenside-3",
+          "club": "Ravenside",
+          "name": "Hugo Fern",
+          "number": 3,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 91,
+            "passing": 70,
+            "dribbling": 92,
+            "defending": 57,
+            "shooting": 60
+          }
+        },
+        {
+          "id": "ravenside-4",
+          "club": "Ravenside",
+          "name": "Mira Wren",
+          "number": 4,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 92,
+            "passing": 91,
+            "dribbling": 88,
+            "defending": 75,
+            "shooting": 71
+          }
+        },
+        {
+          "id": "ravenside-5",
+          "club": "Ravenside",
+          "name": "Nico Wren",
+          "number": 5,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 75,
+            "passing": 70,
+            "dribbling": 71,
+            "defending": 80,
+            "shooting": 63
+          }
+        },
+        {
+          "id": "ravenside-6",
+          "club": "Ravenside",
+          "name": "Taro Oak",
+          "number": 6,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 75,
+            "passing": 59,
+            "dribbling": 55,
+            "defending": 84,
+            "shooting": 91
+          }
+        },
+        {
+          "id": "ravenside-7",
+          "club": "Ravenside",
+          "name": "Gale Crest",
+          "number": 7,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 89,
+            "passing": 68,
+            "dribbling": 87,
+            "defending": 71,
+            "shooting": 63
+          }
+        },
+        {
+          "id": "ravenside-8",
+          "club": "Ravenside",
+          "name": "Wren Fern",
+          "number": 8,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 59,
+            "passing": 70,
+            "dribbling": 78,
+            "defending": 73,
+            "shooting": 65
+          }
+        },
+        {
+          "id": "ravenside-9",
+          "club": "Ravenside",
+          "name": "Oona Drift",
+          "number": 9,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 89,
+            "passing": 74,
+            "dribbling": 88,
+            "defending": 55,
+            "shooting": 90
+          }
+        },
+        {
+          "id": "ravenside-10",
+          "club": "Ravenside",
+          "name": "Taro Haven",
+          "number": 10,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 61,
+            "passing": 63,
+            "dribbling": 71,
+            "defending": 62,
+            "shooting": 61
+          }
+        },
+        {
+          "id": "ravenside-11",
+          "club": "Ravenside",
+          "name": "Yara Ellis",
+          "number": 11,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 72,
+            "passing": 73,
+            "dribbling": 68,
+            "defending": 76,
+            "shooting": 68
+          }
+        },
+        {
+          "id": "ravenside-12",
+          "club": "Ravenside",
+          "name": "Quill Quinn",
+          "number": 12,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 86,
+            "passing": 71,
+            "dribbling": 58,
+            "defending": 60,
+            "shooting": 82
+          }
+        },
+        {
+          "id": "ravenside-13",
+          "club": "Ravenside",
+          "name": "Rafi Bale",
+          "number": 13,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 55,
+            "passing": 76,
+            "dribbling": 63,
+            "defending": 71,
+            "shooting": 65
+          }
+        },
+        {
+          "id": "ravenside-14",
+          "club": "Ravenside",
+          "name": "Oona Rook",
+          "number": 14,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 82,
+            "passing": 90,
+            "dribbling": 55,
+            "defending": 62,
+            "shooting": 59
+          }
+        },
+        {
+          "id": "ravenside-15",
+          "club": "Ravenside",
+          "name": "Jai Rook",
+          "number": 15,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 57,
+            "passing": 78,
+            "dribbling": 92,
+            "defending": 90,
+            "shooting": 64
+          }
+        },
+        {
+          "id": "ravenside-16",
+          "club": "Ravenside",
+          "name": "Nora Ellis",
+          "number": 16,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 57,
+            "passing": 74,
+            "dribbling": 78,
+            "defending": 57,
+            "shooting": 77
+          }
+        },
+        {
+          "id": "ravenside-17",
+          "club": "Ravenside",
+          "name": "Pax Wren",
+          "number": 17,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 61,
+            "passing": 77,
+            "dribbling": 90,
+            "defending": 81,
+            "shooting": 64
+          }
+        },
+        {
+          "id": "ravenside-18",
+          "club": "Ravenside",
+          "name": "Pax Eden",
+          "number": 18,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 65,
+            "passing": 66,
+            "dribbling": 81,
+            "defending": 56,
+            "shooting": 66
+          }
+        },
+        {
+          "id": "ravenside-19",
+          "club": "Ravenside",
+          "name": "Vega Clover",
+          "number": 19,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 81,
+            "passing": 70,
+            "dribbling": 72,
+            "defending": 65,
+            "shooting": 61
+          }
+        },
+        {
+          "id": "ravenside-20",
+          "club": "Ravenside",
+          "name": "Zane Eden",
+          "number": 20,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 57,
+            "passing": 85,
+            "dribbling": 69,
+            "defending": 67,
+            "shooting": 84
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stonebridge",
+      "formation": "4-2-3-1",
+      "style": "direct",
+      "players": [
+        {
+          "id": "stonebridge-1",
+          "club": "Stonebridge",
+          "name": "Wren Jett",
+          "number": 1,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 69,
+            "passing": 69,
+            "dribbling": 56,
+            "defending": 67,
+            "shooting": 80
+          }
+        },
+        {
+          "id": "stonebridge-2",
+          "club": "Stonebridge",
+          "name": "Vega Iris",
+          "number": 2,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 59,
+            "passing": 72,
+            "dribbling": 77,
+            "defending": 87,
+            "shooting": 80
+          }
+        },
+        {
+          "id": "stonebridge-3",
+          "club": "Stonebridge",
+          "name": "Xena Kite",
+          "number": 3,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 56,
+            "passing": 62,
+            "dribbling": 71,
+            "defending": 66,
+            "shooting": 92
+          }
+        },
+        {
+          "id": "stonebridge-4",
+          "club": "Stonebridge",
+          "name": "Quill Bale",
+          "number": 4,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 61,
+            "passing": 82,
+            "dribbling": 77,
+            "defending": 75,
+            "shooting": 82
+          }
+        },
+        {
+          "id": "stonebridge-5",
+          "club": "Stonebridge",
+          "name": "Vale Dune",
+          "number": 5,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 79,
+            "passing": 91,
+            "dribbling": 67,
+            "defending": 71,
+            "shooting": 57
+          }
+        },
+        {
+          "id": "stonebridge-6",
+          "club": "Stonebridge",
+          "name": "Nora Ash",
+          "number": 6,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 88,
+            "passing": 89,
+            "dribbling": 67,
+            "defending": 78,
+            "shooting": 82
+          }
+        },
+        {
+          "id": "stonebridge-7",
+          "club": "Stonebridge",
+          "name": "Evan Wren",
+          "number": 7,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 76,
+            "passing": 75,
+            "dribbling": 62,
+            "defending": 74,
+            "shooting": 87
+          }
+        },
+        {
+          "id": "stonebridge-8",
+          "club": "Stonebridge",
+          "name": "Taro Wren",
+          "number": 8,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 81,
+            "passing": 75,
+            "dribbling": 80,
+            "defending": 73,
+            "shooting": 90
+          }
+        },
+        {
+          "id": "stonebridge-9",
+          "club": "Stonebridge",
+          "name": "Ivo Gale",
+          "number": 9,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 81,
+            "passing": 79,
+            "dribbling": 66,
+            "defending": 91,
+            "shooting": 74
+          }
+        },
+        {
+          "id": "stonebridge-10",
+          "club": "Stonebridge",
+          "name": "Liam Rook",
+          "number": 10,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 55,
+            "passing": 74,
+            "dribbling": 73,
+            "defending": 68,
+            "shooting": 82
+          }
+        },
+        {
+          "id": "stonebridge-11",
+          "club": "Stonebridge",
+          "name": "Umar Oak",
+          "number": 11,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 83,
+            "passing": 83,
+            "dribbling": 68,
+            "defending": 87,
+            "shooting": 85
+          }
+        },
+        {
+          "id": "stonebridge-12",
+          "club": "Stonebridge",
+          "name": "Kian Wren",
+          "number": 12,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 60,
+            "passing": 73,
+            "dribbling": 87,
+            "defending": 76,
+            "shooting": 60
+          }
+        },
+        {
+          "id": "stonebridge-13",
+          "club": "Stonebridge",
+          "name": "Taro Hale",
+          "number": 13,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 67,
+            "passing": 64,
+            "dribbling": 56,
+            "defending": 57,
+            "shooting": 70
+          }
+        },
+        {
+          "id": "stonebridge-14",
+          "club": "Stonebridge",
+          "name": "Rune Thorne",
+          "number": 14,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 59,
+            "passing": 84,
+            "dribbling": 81,
+            "defending": 91,
+            "shooting": 67
+          }
+        },
+        {
+          "id": "stonebridge-15",
+          "club": "Stonebridge",
+          "name": "Zane Pine",
+          "number": 15,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 80,
+            "passing": 70,
+            "dribbling": 64,
+            "defending": 55,
+            "shooting": 61
+          }
+        },
+        {
+          "id": "stonebridge-16",
+          "club": "Stonebridge",
+          "name": "Nora Hale",
+          "number": 16,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 66,
+            "passing": 88,
+            "dribbling": 84,
+            "defending": 58,
+            "shooting": 90
+          }
+        },
+        {
+          "id": "stonebridge-17",
+          "club": "Stonebridge",
+          "name": "Pax Haven",
+          "number": 17,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 62,
+            "passing": 84,
+            "dribbling": 63,
+            "defending": 84,
+            "shooting": 88
+          }
+        },
+        {
+          "id": "stonebridge-18",
+          "club": "Stonebridge",
+          "name": "Yara Thorne",
+          "number": 18,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 75,
+            "passing": 83,
+            "dribbling": 87,
+            "defending": 82,
+            "shooting": 90
+          }
+        },
+        {
+          "id": "stonebridge-19",
+          "club": "Stonebridge",
+          "name": "Kian Zed",
+          "number": 19,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 85,
+            "passing": 83,
+            "dribbling": 71,
+            "defending": 70,
+            "shooting": 72
+          }
+        },
+        {
+          "id": "stonebridge-20",
+          "club": "Stonebridge",
+          "name": "Willa Pine",
+          "number": 20,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 70,
+            "passing": 72,
+            "dribbling": 83,
+            "defending": 59,
+            "shooting": 73
+          }
+        }
+      ]
+    },
+    {
+      "name": "Summit Vale",
+      "formation": "3-4-3",
+      "style": "possession",
+      "players": [
+        {
+          "id": "summit-vale-1",
+          "club": "Summit Vale",
+          "name": "Pax Iris",
+          "number": 1,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 76,
+            "passing": 75,
+            "dribbling": 89,
+            "defending": 60,
+            "shooting": 63
+          }
+        },
+        {
+          "id": "summit-vale-2",
+          "club": "Summit Vale",
+          "name": "Jai Hale",
+          "number": 2,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 79,
+            "passing": 64,
+            "dribbling": 68,
+            "defending": 59,
+            "shooting": 81
+          }
+        },
+        {
+          "id": "summit-vale-3",
+          "club": "Summit Vale",
+          "name": "Mira Kite",
+          "number": 3,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 89,
+            "passing": 84,
+            "dribbling": 81,
+            "defending": 58,
+            "shooting": 68
+          }
+        },
+        {
+          "id": "summit-vale-4",
+          "club": "Summit Vale",
+          "name": "Mira Morrow",
+          "number": 4,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 92,
+            "passing": 56,
+            "dribbling": 91,
+            "defending": 79,
+            "shooting": 85
+          }
+        },
+        {
+          "id": "summit-vale-5",
+          "club": "Summit Vale",
+          "name": "Ari Lark",
+          "number": 5,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 74,
+            "passing": 79,
+            "dribbling": 81,
+            "defending": 89,
+            "shooting": 89
+          }
+        },
+        {
+          "id": "summit-vale-6",
+          "club": "Summit Vale",
+          "name": "Oren Pine",
+          "number": 6,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 69,
+            "passing": 72,
+            "dribbling": 82,
+            "defending": 86,
+            "shooting": 56
+          }
+        },
+        {
+          "id": "summit-vale-7",
+          "club": "Summit Vale",
+          "name": "Zane Kite",
+          "number": 7,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 80,
+            "passing": 65,
+            "dribbling": 84,
+            "defending": 63,
+            "shooting": 89
+          }
+        },
+        {
+          "id": "summit-vale-8",
+          "club": "Summit Vale",
+          "name": "Bren Haven",
+          "number": 8,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 80,
+            "passing": 92,
+            "dribbling": 91,
+            "defending": 56,
+            "shooting": 60
+          }
+        },
+        {
+          "id": "summit-vale-9",
+          "club": "Summit Vale",
+          "name": "Pia Fenn",
+          "number": 9,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 58,
+            "passing": 71,
+            "dribbling": 79,
+            "defending": 75,
+            "shooting": 68
+          }
+        },
+        {
+          "id": "summit-vale-10",
+          "club": "Summit Vale",
+          "name": "Pia Kite",
+          "number": 10,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 76,
+            "passing": 79,
+            "dribbling": 72,
+            "defending": 81,
+            "shooting": 71
+          }
+        },
+        {
+          "id": "summit-vale-11",
+          "club": "Summit Vale",
+          "name": "Finn Pine",
+          "number": 11,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 56,
+            "passing": 89,
+            "dribbling": 58,
+            "defending": 77,
+            "shooting": 69
+          }
+        },
+        {
+          "id": "summit-vale-12",
+          "club": "Summit Vale",
+          "name": "Evan Briar",
+          "number": 12,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 57,
+            "passing": 56,
+            "dribbling": 70,
+            "defending": 67,
+            "shooting": 56
+          }
+        },
+        {
+          "id": "summit-vale-13",
+          "club": "Summit Vale",
+          "name": "Ivo Pine",
+          "number": 13,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 62,
+            "passing": 91,
+            "dribbling": 68,
+            "defending": 84,
+            "shooting": 71
+          }
+        },
+        {
+          "id": "summit-vale-14",
+          "club": "Summit Vale",
+          "name": "Hugo Briar",
+          "number": 14,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 65,
+            "passing": 74,
+            "dribbling": 61,
+            "defending": 92,
+            "shooting": 56
+          }
+        },
+        {
+          "id": "summit-vale-15",
+          "club": "Summit Vale",
+          "name": "Taro Stone",
+          "number": 15,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 79,
+            "passing": 80,
+            "dribbling": 67,
+            "defending": 59,
+            "shooting": 92
+          }
+        },
+        {
+          "id": "summit-vale-16",
+          "club": "Summit Vale",
+          "name": "Pax Dune",
+          "number": 16,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 74,
+            "passing": 62,
+            "dribbling": 91,
+            "defending": 57,
+            "shooting": 77
+          }
+        },
+        {
+          "id": "summit-vale-17",
+          "club": "Summit Vale",
+          "name": "Xena Noble",
+          "number": 17,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 78,
+            "passing": 59,
+            "dribbling": 87,
+            "defending": 76,
+            "shooting": 55
+          }
+        },
+        {
+          "id": "summit-vale-18",
+          "club": "Summit Vale",
+          "name": "Mira Drift",
+          "number": 18,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 86,
+            "passing": 61,
+            "dribbling": 82,
+            "defending": 78,
+            "shooting": 84
+          }
+        },
+        {
+          "id": "summit-vale-19",
+          "club": "Summit Vale",
+          "name": "Jai Noble",
+          "number": 19,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 66,
+            "passing": 88,
+            "dribbling": 72,
+            "defending": 89,
+            "shooting": 85
+          }
+        },
+        {
+          "id": "summit-vale-20",
+          "club": "Summit Vale",
+          "name": "Pia Noble",
+          "number": 20,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 92,
+            "passing": 72,
+            "dribbling": 75,
+            "defending": 70,
+            "shooting": 60
+          }
+        }
+      ]
+    },
+    {
+      "name": "Westbrook",
+      "formation": "5-3-2",
+      "style": "aggressive",
+      "players": [
+        {
+          "id": "westbrook-1",
+          "club": "Westbrook",
+          "name": "Rafi Fern",
+          "number": 1,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 83,
+            "passing": 70,
+            "dribbling": 84,
+            "defending": 91,
+            "shooting": 79
+          }
+        },
+        {
+          "id": "westbrook-2",
+          "club": "Westbrook",
+          "name": "Vega Ash",
+          "number": 2,
+          "position": "GK",
+          "archetype": "keeper",
+          "rating": {
+            "pace": 86,
+            "passing": 75,
+            "dribbling": 66,
+            "defending": 86,
+            "shooting": 68
+          }
+        },
+        {
+          "id": "westbrook-3",
+          "club": "Westbrook",
+          "name": "Wren Clover",
+          "number": 3,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 71,
+            "passing": 76,
+            "dribbling": 72,
+            "defending": 72,
+            "shooting": 90
+          }
+        },
+        {
+          "id": "westbrook-4",
+          "club": "Westbrook",
+          "name": "Ari Quinn",
+          "number": 4,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 67,
+            "passing": 60,
+            "dribbling": 70,
+            "defending": 81,
+            "shooting": 86
+          }
+        },
+        {
+          "id": "westbrook-5",
+          "club": "Westbrook",
+          "name": "Yara Briar",
+          "number": 5,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 70,
+            "passing": 85,
+            "dribbling": 86,
+            "defending": 83,
+            "shooting": 56
+          }
+        },
+        {
+          "id": "westbrook-6",
+          "club": "Westbrook",
+          "name": "Finn Jett",
+          "number": 6,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 69,
+            "passing": 80,
+            "dribbling": 70,
+            "defending": 74,
+            "shooting": 92
+          }
+        },
+        {
+          "id": "westbrook-7",
+          "club": "Westbrook",
+          "name": "Yuri Pine",
+          "number": 7,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 90,
+            "passing": 88,
+            "dribbling": 77,
+            "defending": 82,
+            "shooting": 90
+          }
+        },
+        {
+          "id": "westbrook-8",
+          "club": "Westbrook",
+          "name": "Vega Lark",
+          "number": 8,
+          "position": "DEF",
+          "archetype": "defender",
+          "rating": {
+            "pace": 84,
+            "passing": 72,
+            "dribbling": 74,
+            "defending": 71,
+            "shooting": 69
+          }
+        },
+        {
+          "id": "westbrook-9",
+          "club": "Westbrook",
+          "name": "Hugo Zed",
+          "number": 9,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 67,
+            "passing": 75,
+            "dribbling": 62,
+            "defending": 89,
+            "shooting": 66
+          }
+        },
+        {
+          "id": "westbrook-10",
+          "club": "Westbrook",
+          "name": "Milo Gale",
+          "number": 10,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 85,
+            "passing": 72,
+            "dribbling": 92,
+            "defending": 88,
+            "shooting": 73
+          }
+        },
+        {
+          "id": "westbrook-11",
+          "club": "Westbrook",
+          "name": "Gale Drift",
+          "number": 11,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 67,
+            "passing": 73,
+            "dribbling": 69,
+            "defending": 78,
+            "shooting": 66
+          }
+        },
+        {
+          "id": "westbrook-12",
+          "club": "Westbrook",
+          "name": "Taro Ash",
+          "number": 12,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 89,
+            "passing": 63,
+            "dribbling": 72,
+            "defending": 57,
+            "shooting": 58
+          }
+        },
+        {
+          "id": "westbrook-13",
+          "club": "Westbrook",
+          "name": "Yara Jett",
+          "number": 13,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 63,
+            "passing": 86,
+            "dribbling": 61,
+            "defending": 55,
+            "shooting": 91
+          }
+        },
+        {
+          "id": "westbrook-14",
+          "club": "Westbrook",
+          "name": "Soren Pine",
+          "number": 14,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 85,
+            "passing": 83,
+            "dribbling": 76,
+            "defending": 66,
+            "shooting": 58
+          }
+        },
+        {
+          "id": "westbrook-15",
+          "club": "Westbrook",
+          "name": "Quill Eden",
+          "number": 15,
+          "position": "MID",
+          "archetype": "playmaker",
+          "rating": {
+            "pace": 85,
+            "passing": 62,
+            "dribbling": 59,
+            "defending": 80,
+            "shooting": 86
+          }
+        },
+        {
+          "id": "westbrook-16",
+          "club": "Westbrook",
+          "name": "Evan Stone",
+          "number": 16,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 58,
+            "passing": 64,
+            "dribbling": 64,
+            "defending": 91,
+            "shooting": 74
+          }
+        },
+        {
+          "id": "westbrook-17",
+          "club": "Westbrook",
+          "name": "Finn Hale",
+          "number": 17,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 62,
+            "passing": 90,
+            "dribbling": 81,
+            "defending": 69,
+            "shooting": 88
+          }
+        },
+        {
+          "id": "westbrook-18",
+          "club": "Westbrook",
+          "name": "Zane Oak",
+          "number": 18,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 83,
+            "passing": 74,
+            "dribbling": 92,
+            "defending": 82,
+            "shooting": 74
+          }
+        },
+        {
+          "id": "westbrook-19",
+          "club": "Westbrook",
+          "name": "Zuri Thorne",
+          "number": 19,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 58,
+            "passing": 61,
+            "dribbling": 68,
+            "defending": 68,
+            "shooting": 71
+          }
+        },
+        {
+          "id": "westbrook-20",
+          "club": "Westbrook",
+          "name": "Finn Fenn",
+          "number": 20,
+          "position": "FWD",
+          "archetype": "finisher",
+          "rating": {
+            "pace": 70,
+            "passing": 66,
+            "dribbling": 90,
+            "defending": 59,
+            "shooting": 65
+          }
+        }
+      ]
+    }
+  ]
+}

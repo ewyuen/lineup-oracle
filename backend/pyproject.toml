@@ -1,0 +1,18 @@
+[project]
+name = "lineup-oracle"
+version = "0.1.0"
+description = "Synthetic data and replay for Lineup Oracle"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.setuptools]
+packages = ["lineup_oracle"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

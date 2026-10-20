@@ -63,16 +63,16 @@ One flat JSON object per event, JSON Lines on disk:
 |---|---|---|
 | `id` | string | unique |
 | `match_id` | string | |
-| `type` | string | pass, shot, tackle, possession change, pressure, team news (injury, suspension, late fitness doubt), match metadata |
+| `type` | string | pass, shot, tackle, possession_change, pressure, team_news (injury, suspension, late fitness doubt), match_metadata |
 | `minute` | float | match minute; team news uses offsets before kick-off |
 | `club` | string | |
 | `player` | string or null | null for non-player events |
 | `payload` | object | type-specific |
 | `simulated` | bool | always true |
 
-Generated team-news events are free text in `payload.text` (naming the club and player, with `player` null), so the LLM parser must read them. Events with structured fields only (UI preset buttons) skip the LLM. The structured truth is the true XI in the match metadata.
+Generated team-news events are free text in `payload.text` (naming the club and player, with `player` null), so the LLM parser must read them. The payload also carries `kind` and `player_name` as answer labels for the parser eval; the parser must not read them. Events with structured fields only (UI preset buttons) skip the LLM. The structured truth is the true XI in the match metadata.
 
-Match metadata records the actual starting XI and formation of both clubs, and a `schema_version`. Source: `openspec/changes/synthetic-data-and-replay/design.md`.
+Match metadata records the actual starting XI and formation of both clubs, `payload.matchday` (1 to 10) and `payload.schema_version` (1). Event minutes are relative to each match's kick-off, so replay one match at a time. Source: `openspec/changes/synthetic-data-and-replay/design.md`.
 
 ### `predict_lineup` (draft)
 
