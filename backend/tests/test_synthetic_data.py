@@ -179,6 +179,16 @@ def test_xi_follows_club_formation_and_all_event_types_appear() -> None:
     assert len({n % 10 for n in shots}) > 1
 
 
+def test_fixtures_meet_each_pair_home_and_away_with_matchday_recorded() -> None:
+    roster = load_roster(ROSTER_PATH)
+    fixtures = generate_fixtures(sorted(roster.clubs), matchdays=10)
+    games = [g for day in fixtures for g in day]
+    assert len(set(games)) == 30  # 15 pairs, each once at home and once away
+    assert len({frozenset(g) for g in games}) == 15
+    metadata = [e for e in generate_match_events(roster, fixtures, seed=1) if e.type == "match_metadata"]
+    assert [e.payload["matchday"] for e in metadata] == [d for d in range(1, 11) for _ in range(3)]
+
+
 def test_plausible_distribution_across_many_matches() -> None:
     roster = load_roster(ROSTER_PATH)
     fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)

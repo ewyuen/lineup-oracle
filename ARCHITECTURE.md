@@ -72,7 +72,7 @@ One flat JSON object per event, JSON Lines on disk:
 
 Generated team-news events are free text in `payload.text` (naming the club and player, with `player` null), so the LLM parser must read them. Events with structured fields only (UI preset buttons) skip the LLM. The structured truth is the true XI in the match metadata.
 
-Match metadata records the actual starting XI and formation of both clubs, and `payload.schema_version` (1). Source: `openspec/changes/synthetic-data-and-replay/design.md`.
+Match metadata records the actual starting XI and formation of both clubs, `payload.matchday` (1 to 10) and `payload.schema_version` (1). Event minutes are relative to each match's kick-off, so replay one match at a time. Source: `openspec/changes/synthetic-data-and-replay/design.md`.
 
 ### `predict_lineup` (draft)
 

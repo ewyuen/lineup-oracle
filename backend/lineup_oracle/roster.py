@@ -154,7 +154,6 @@ def generate_synthetic_roster(seed: int = 42) -> Roster:
     for club_name in CLUB_NAMES:
         formation = CLUB_FORMATIONS[club_name]
         players: list[Player] = []
-        position_order = ["GK", "DEF", "MID", "FWD"]
         counts = {"GK": 2, "DEF": 6, "MID": 7, "FWD": 5}
         number = 1
         for position in ["GK", "DEF", "MID", "FWD"]:

@@ -3,32 +3,21 @@ from __future__ import annotations
 import asyncio
 import heapq
 from collections.abc import Iterable
-from dataclasses import dataclass
 from typing import Any
-
-
-@dataclass
-class ReplayEvent:
-    event: dict[str, Any]
-    scheduled_for: float
-    sequence: int
 
 
 class ReplaySession:
     def __init__(self, events: list[dict[str, Any]], speed: float = 1.0) -> None:
         self._next_sequence = 0
-        ordered = sorted(events, key=lambda item: (float(item.get("minute", 0.0)), str(item.get("id", ""))))
-        self._events: list[tuple[float, int, ReplayEvent]] = []
-        for item in ordered:
-            replay_event = ReplayEvent(
-                event=item,
-                scheduled_for=float(item.get("minute", 0.0)),
-                sequence=self._next_sequence,
-            )
-            self._next_sequence += 1
-            heapq.heappush(self._events, (replay_event.scheduled_for, replay_event.sequence, replay_event))
+        self._events: list[tuple[float, int, dict[str, Any]]] = []
+        for item in sorted(events, key=lambda item: (float(item.get("minute", 0.0)), str(item.get("id", "")))):
+            self._push(item)
         self._speed = max(speed, 0.0)
         self._subscribers: list[asyncio.Queue[dict[str, Any]]] = []
+
+    def _push(self, event: dict[str, Any]) -> None:
+        heapq.heappush(self._events, (float(event.get("minute", 0.0)), self._next_sequence, event))
+        self._next_sequence += 1
 
     @property
     def speed(self) -> float:
@@ -40,13 +29,7 @@ class ReplaySession:
         return queue
 
     async def inject(self, event: dict[str, Any]) -> None:
-        replay_event = ReplayEvent(
-            event=event,
-            scheduled_for=float(event.get("minute", 0.0)),
-            sequence=self._next_sequence,
-        )
-        self._next_sequence += 1
-        heapq.heappush(self._events, (replay_event.scheduled_for, replay_event.sequence, replay_event))
+        self._push(event)
 
     async def run(self, *, speed: float | None = None) -> list[dict[str, Any]]:
         effective_speed = self._speed if speed is None else max(speed, 0.0)
@@ -54,15 +37,15 @@ class ReplaySession:
         last: float | None = None
         while self._events:
             await asyncio.sleep(0)
-            _, _, item = heapq.heappop(self._events)
+            scheduled_for, _, item = heapq.heappop(self._events)
             if effective_speed > 0 and last is not None:
-                wait = max(0.0, (item.scheduled_for - last) / effective_speed)
+                wait = max(0.0, (scheduled_for - last) / effective_speed)
                 if wait > 0:
                     await asyncio.sleep(wait)
-            last = item.scheduled_for
-            emitted.append(item.event)
+            last = scheduled_for
+            emitted.append(item)
             for queue in self._subscribers:
-                await queue.put(item.event)
+                await queue.put(item)
         return emitted
 
 

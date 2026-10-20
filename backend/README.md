@@ -21,7 +21,7 @@ The generated file contains one JSON event per line. Each event includes:
 - `payload`
 - `simulated`
 
-Team-news events use free text inside the `payload.text` field and are emitted before kick-off with negative minutes (-48, -24 and -1). Each match has an injury, a suspension and a fitness doubt per club. Injured and suspended players are excluded from that match's true XI, which is stored in the `match_metadata` event (`payload.schema_version` is 1).
+Team-news events use free text inside the `payload.text` field and are emitted before kick-off with negative minutes (-48, -24 and -1). Each match has an injury, a suspension and a fitness doubt per club. Injured and suspended players are excluded from that match's true XI, which is stored in the `match_metadata` event (`payload.schema_version` is 1; `payload.matchday` is 1 to 10). Minutes are relative to each match's kick-off, so every match shares the same time axis: replay one match at a time (filter on `match_id`), not the whole file.
 
 ## Replay speed
 

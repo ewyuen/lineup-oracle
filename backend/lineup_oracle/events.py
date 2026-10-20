@@ -30,29 +30,18 @@ class Event:
         return asdict(self)
 
 
-def _fixture_round_robin(clubs: list[str], matchdays: int = 10) -> list[list[tuple[str, str]]]:
-    rotation = clubs[:]
-    schedule: list[list[tuple[str, str]]] = []
-    for _ in range(matchdays):
-        pairings: list[tuple[str, str]] = []
-        for idx in range(0, len(rotation), 2):
-            home = rotation[idx]
-            away = rotation[(idx + 1) % len(rotation)]
-            if idx + 1 >= len(rotation):
-                away = rotation[0]
-            if home != away:
-                pairings.append((home, away))
-        if len(pairings) == 3:
-            schedule.append(pairings)
-        rotation = [rotation[0]] + [rotation[-1]] + rotation[1:-1]
-    return schedule
-
-
 def generate_fixtures(clubs: Iterable[str], matchdays: int = 10) -> list[list[tuple[str, str]]]:
+    """Circle-method round robin for 6 clubs: 5 matchdays per cycle, home and away swapped each cycle."""
     club_list = list(clubs)
     if len(club_list) != 6:
         raise ValueError("Fixture generation expects exactly 6 clubs")
-    return _fixture_round_robin(club_list, matchdays)
+    rotation = club_list[:]
+    schedule: list[list[tuple[str, str]]] = []
+    for day in range(matchdays):
+        pairings = [(rotation[i], rotation[5 - i]) for i in range(3)]
+        schedule.append(pairings if (day // 5) % 2 == 0 else [(away, home) for home, away in pairings])
+        rotation = [rotation[0], rotation[-1]] + rotation[1:-1]
+    return schedule
 
 
 def _formation_counts(formation: str) -> dict[str, int]:
@@ -126,27 +115,26 @@ def _append_club_team_news(events: list[Event], club: Club, match_id: str, rng: 
     return unavailable
 
 
-def generate_match_metadata(ref_match_id: str, home_club: str, away_club: str, rng: random.Random, roster: Roster, unavailable: dict[str, set[str]]) -> dict[str, Any]:
-    home_players = _pick_true_xi(roster.clubs[home_club].players, rng, unavailable.get(home_club, set()), roster.clubs[home_club].formation)
-    away_players = _pick_true_xi(roster.clubs[away_club].players, rng, unavailable.get(away_club, set()), roster.clubs[away_club].formation)
-    return {
-        "id": ref_match_id,
-        "match_id": ref_match_id,
-        "type": "match_metadata",
-        "minute": 0.0,
-        "club": "match",
-        "player": None,
-        "payload": {
+def generate_match_metadata(match_id: str, matchday: int, home_club: str, away_club: str, rng: random.Random, roster: Roster, unavailable: dict[str, set[str]]) -> Event:
+    home, away = (roster.clubs[c] for c in (home_club, away_club))
+    return Event(
+        id=match_id,
+        match_id=match_id,
+        type="match_metadata",
+        minute=0.0,
+        club="match",
+        player=None,
+        payload={
             "schema_version": 1,
+            "matchday": matchday,
             "home_club": home_club,
             "away_club": away_club,
-            "home_formation": roster.clubs[home_club].formation,
-            "away_formation": roster.clubs[away_club].formation,
-            "home_xi": [player.id for player in home_players],
-            "away_xi": [player.id for player in away_players],
+            "home_formation": home.formation,
+            "away_formation": away.formation,
+            "home_xi": [p.id for p in _pick_true_xi(home.players, rng, unavailable.get(home_club, set()), home.formation)],
+            "away_xi": [p.id for p in _pick_true_xi(away.players, rng, unavailable.get(away_club, set()), away.formation)],
         },
-        "simulated": True,
-    }
+    )
 
 
 # (type, mean per club per match, spread, has a player, payload builder)
@@ -163,12 +151,11 @@ def generate_match_events(roster: Roster, fixtures: list[list[tuple[str, str]]],
     rng = random.Random(seed)
     events: list[Event] = []
     match_index = 1
-    for matchday in fixtures:
-        for home_club, away_club in matchday:
+    for matchday, pairings in enumerate(fixtures, start=1):
+        for home_club, away_club in pairings:
             match_id = f"match-{match_index:03d}"
             unavailable = {club: _append_club_team_news(events, roster.clubs[club], match_id, rng) for club in (home_club, away_club)}
-            metadata = generate_match_metadata(match_id, home_club, away_club, rng, roster, unavailable)
-            events.append(Event(**{k: v for k, v in metadata.items() if k in {"id", "match_id", "type", "minute", "club", "player", "payload", "simulated"}}))
+            events.append(generate_match_metadata(match_id, matchday, home_club, away_club, rng, roster, unavailable))
             for club in (home_club, away_club):
                 club_players = roster.clubs[club].players
                 player_ids = [p.id for p in club_players]
@@ -194,13 +181,6 @@ def write_events(path: str | Path, events: list[Event]) -> None:
     with file_path.open("w", encoding="utf-8") as handle:
         for event in events:
             handle.write(json.dumps(event.to_dict(), separators=(",", ":")) + "\n")
-
-
-def generate_seeded_dataset(seed: int = 42) -> tuple[list[Event], list[list[tuple[str, str]]]]:
-    roster = load_roster(Path(__file__).resolve().parents[1] / "data" / "roster.json")
-    fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)
-    events = generate_match_events(roster, fixtures, seed=seed)
-    return events, fixtures
 
 
 def main() -> None:
