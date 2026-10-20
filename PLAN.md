@@ -4,9 +4,9 @@ Status: design agreed in the grill-me session. Final "shared understanding" conf
 
 ## Urgent actions (yours)
 1. ~~Register before Oct 20, 2026, 12:00 PM PT.~~ Done.
-2. Email the sponsor (rules section 11.6): "Does a lineup predictor built on a synthetic event pipeline fit the theme?"
+2. ~~Email the sponsor (rules section 11.6)~~ Skipped by decision; not asking the sponsor about theme fit.
 3. Submit by **Oct 27, 2026, 11:59 PM PT**. Plan: freeze features Oct 25, video Oct 26, submit the morning of Oct 27.
-4. Create the new repo as **private** now (registration is done, and the rules require a project created after registration). Make it **public before submitting**. Move this file and `openspec/` into it.
+4. ~~Create the new repo as **private**~~ Done (private repo created, files moved in). Still to do: make it **public before submitting**.
 
 Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md
 (Not yet compared with aka.ms/insidethegame or the Reactor page.)
