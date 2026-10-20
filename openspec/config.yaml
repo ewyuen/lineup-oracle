@@ -1,0 +1,42 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
+
+context: |
+  Hackathon project "Lineup Oracle" (Microsoft x Premier League "Inside the Game"); see PLAN.md.
+  Backend Python (FastAPI, SciPy MILP, Microsoft Agent Framework only; no LangGraph/AutoGen).
+  UI is ASP.NET Razor Pages + HTMX. Azure Container Apps, Postgres, Foundry gpt-4.1-mini (model name from env var).
+  All data is synthetic (rule 4.7): invented club/player names, no crests/logos/photos; the real-to-synthetic
+  mapping is private and never committed. Deterministic code picks the XI; the LLM only parses and explains,
+  and the API must still return an XI if the LLM fails. Solo build, about 8 days: keep changes small.
