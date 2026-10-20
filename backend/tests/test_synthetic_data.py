@@ -13,7 +13,7 @@ from lineup_oracle.events import (
     generate_match_events,
 )
 from lineup_oracle.replay import ReplaySession, replay_all_subscribers
-from lineup_oracle.roster import CLUB_NAMES, alias_roster, generate_synthetic_roster, load_roster, write_roster
+from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster, load_roster, write_roster
 
 
 ROSTER_PATH = Path(__file__).resolve().parents[1] / "data" / "roster.json"
@@ -166,26 +166,9 @@ def test_committed_roster_has_no_private_names() -> None:
     if not PRIVATE_CSV_PATH.exists():
         pytest.skip("private/real_roster.csv not present")
     with PRIVATE_CSV_PATH.open("r", encoding="utf-8", newline="") as handle:
-        rows = list(csv.DictReader(handle))
-    real_names = {r.get(k, "").strip() for r in rows for k in ("real_club", "real_player")} - {""}
+        real_names = {row.get("name", "").strip() for row in csv.DictReader(handle)} - {""}
     roster_text = ROSTER_PATH.read_text(encoding="utf-8")
     assert not [name for name in real_names if name in roster_text]
-
-
-def test_alias_roster_maps_real_to_synthetic_without_leaking() -> None:
-    rows = [
-        {"real_club": f"RealClub{c}", "real_player": f"RealPlayer{c}-{n}", "number": str(n), "position": pos}
-        for c in range(6)
-        for n, pos in enumerate(["GK", "GK"] + ["DEF"] * 6 + ["MID"] * 7 + ["FWD"] * 5, start=1)
-    ]
-    roster, mapping = alias_roster(rows, seed=1)
-    assert list(roster.clubs) == CLUB_NAMES
-    assert all(len(club.players) == 20 for club in roster.clubs.values())
-    assert mapping["clubs"]["RealClub0"] == CLUB_NAMES[0]
-    assert "RealPlayer" not in json.dumps(roster.to_dict())
-    assert alias_roster(rows, seed=1)[0].to_dict() == roster.to_dict()
-    with pytest.raises(ValueError):
-        alias_roster(rows[:20], seed=1)
 
 
 def test_plausible_distribution_across_many_matches() -> None:

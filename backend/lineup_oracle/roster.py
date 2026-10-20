@@ -147,50 +147,6 @@ def _build_player_name(rng: random.Random, club_name: str, index: int, used_name
             return candidate
 
 
-ARCHETYPES = {"GK": "keeper", "DEF": "defender", "MID": "playmaker", "FWD": "finisher"}
-
-
-def _make_player(rng: random.Random, club_name: str, number: int, position: str, used_names: set[str]) -> Player:
-    name = _build_player_name(rng, club_name, number, used_names)  # name first: keeps the seeded stream stable
-    rating = {skill: rng.randint(55, 92) for skill in ("pace", "passing", "dribbling", "defending", "shooting")}
-    return Player(
-        id=f"{club_name.lower().replace(' ', '-')}-{number}",
-        club=club_name,
-        name=name,
-        number=number,
-        position=position,
-        archetype=ARCHETYPES[position],
-        rating=rating,
-    )
-
-
-def alias_roster(rows: list[dict[str, str]], seed: int = 42) -> tuple[Roster, dict[str, Any]]:
-    """Build a synthetic roster from private rows (real_club, real_player, number, position).
-
-    Real clubs map to CLUB_NAMES in order of first appearance. Returns the roster and the
-    real-to-synthetic mapping, which must only be written under private/.
-    """
-    rng = random.Random(seed)
-    used_names: set[str] = set()
-    by_club: dict[str, list[dict[str, str]]] = {}
-    for row in rows:
-        by_club.setdefault(row["real_club"].strip(), []).append(row)
-    if len(by_club) != len(CLUB_NAMES):
-        raise ValueError(f"Expected {len(CLUB_NAMES)} clubs in private input, found {len(by_club)}")
-
-    clubs: dict[str, Club] = {}
-    mapping: dict[str, Any] = {"seed": seed, "clubs": {}, "players": {}}
-    for (real_club, club_rows), club_name in zip(by_club.items(), CLUB_NAMES):
-        mapping["clubs"][real_club] = club_name
-        players = []
-        for row in club_rows:
-            player = _make_player(rng, club_name, int(row["number"]), row["position"].strip(), used_names)
-            players.append(player)
-            mapping["players"][f"{real_club}/{row['real_player'].strip()}"] = f"{club_name}/{player.name}"
-        clubs[club_name] = Club(name=club_name, formation=CLUB_FORMATIONS[club_name], style=CLUB_STYLES[club_name], players=players)
-    return Roster(clubs=clubs), mapping
-
-
 def generate_synthetic_roster(seed: int = 42) -> Roster:
     rng = random.Random(seed)
     used_names: set[str] = set()
@@ -203,7 +159,30 @@ def generate_synthetic_roster(seed: int = 42) -> Roster:
         number = 1
         for position in ["GK", "DEF", "MID", "FWD"]:
             for _ in range(counts[position]):
-                players.append(_make_player(rng, club_name, number, position, used_names))
+                name = _build_player_name(rng, club_name, number, used_names)
+                rating = {
+                    "pace": rng.randint(55, 92),
+                    "passing": rng.randint(55, 92),
+                    "dribbling": rng.randint(55, 92),
+                    "defending": rng.randint(55, 92),
+                    "shooting": rng.randint(55, 92),
+                }
+                players.append(
+                    Player(
+                        id=f"{club_name.lower().replace(' ', '-')}-{number}",
+                        club=club_name,
+                        name=name,
+                        number=number,
+                        position=position,
+                        archetype={
+                            "GK": "keeper",
+                            "DEF": "defender",
+                            "MID": "playmaker",
+                            "FWD": "finisher",
+                        }[position],
+                        rating=rating,
+                    )
+                )
                 number += 1
         clubs[club_name] = Club(name=club_name, formation=formation, style=CLUB_STYLES[club_name], players=players)
     return Roster(clubs=clubs)
