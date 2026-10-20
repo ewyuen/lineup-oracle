@@ -30,4 +30,4 @@
 ## 6. Verify and approve
 
 - [x] 6.1 Run the full backend suite (`cd backend && python -m pytest -q`) and fix any failure.
-- [ ] 6.2 Human approval gate (HITL): stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it. Do not archive or merge before approval.
+- [x] 6.2 Human approval gate (HITL): stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it. Do not archive or merge before approval.
