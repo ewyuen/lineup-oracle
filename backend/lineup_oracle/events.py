@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from .roster import Club, Player, Roster, load_roster
+from .scoring import quality
+
+STARTER_POWER = 4  # higher = the best players start more reliably
 
 
 def _new_id(prefix: str, seq: int) -> str:
@@ -54,9 +57,12 @@ def _pick_true_xi(players: list[Player], rng: random.Random, unavailable: set[st
     available = [player for player in players if player.id not in unavailable]
     chosen: list[Player] = []
     for position, count in _formation_counts(formation).items():
-        pos_players = [p for p in available if p.position == position]
-        rng.shuffle(pos_players)
-        chosen.extend(pos_players[:count])
+        pool = [p for p in available if p.position == position]
+        # Weighted draw without replacement: better players start more often, but not always.
+        for _ in range(min(count, len(pool))):
+            pick = rng.choices(pool, weights=[quality(p) ** STARTER_POWER for p in pool])[0]
+            pool.remove(pick)
+            chosen.append(pick)
     return chosen
 
 

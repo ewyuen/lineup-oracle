@@ -3,7 +3,7 @@ name = "lineup-oracle"
 version = "0.1.0"
 description = "Synthetic data and replay for Lineup Oracle"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["scipy>=1.11"]
 
 [project.optional-dependencies]
 dev = [

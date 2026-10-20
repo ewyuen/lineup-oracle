@@ -29,3 +29,11 @@ Replay speed is controlled by the `speed` parameter, measured in match minutes p
 - `speed=0` delivers every event immediately (used in tests).
 - `speed=1.0` (the default and demo speed) replays a 90-minute match in about 90 seconds. Pre-kick-off team news (negative minutes) is delivered without waiting, so a whole match including its news still takes about 90 seconds.
 - Higher values compress the timeline further, for example `speed=60` replays a match in 1.5 seconds.
+
+## Scoring and the XI optimizer
+
+`lineup_oracle.scoring.p_start_scores(club, recent_xis, availability)` returns a P(start) per player: `availability * (0.7 * quality + 0.3 * recent_share)`. `quality` is the mean of the ratings that matter for the position; `recent_share` is the share of the last 5 matches the player started (0.5 with no history); availability is `available` 1.0, `doubt` 0.5, `out` 0. `recent_xis(events, club, matchday)` reads earlier `match_metadata` events.
+
+`lineup_oracle.optimizer.pick_xi(club, scores)` solves one SciPy MILP per supported formation, multiplies the total by the formation prior (1.0 for the club's usual formation, 0.85 otherwise) and returns the best `XI` (formation, 11 players with `p_start`, up to 2 alternatives per position). It raises `ValueError` naming the club if no formation can be filled. Ties go to the lower player id.
+
+The generator draws each true XI with weight `quality ** 4`, so better players start more often.

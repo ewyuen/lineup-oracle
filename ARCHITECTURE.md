@@ -33,7 +33,7 @@ flowchart LR
     T --> Z
 ```
 
-- **Deterministic:** P(start) is a transparent weighted score, with no trained model. The MILP runs once per formation, weighted by the club's formation prior.
+- **Deterministic:** P(start) is a transparent weighted score, with no trained model: `availability × (0.7 × quality + 0.3 × share of the last 5 matches started)`, where availability is 1 (available), 0.5 (doubt) or 0 (out). The MILP runs once per formation, weighted by the club's formation prior (1.0 for its usual formation, 0.85 for any other), and the best weighted total wins. Ties go to the lower player id.
 - **LLM:** only parses free-text team news and writes explanations. If it fails, the XI is still returned, with a template explanation.
 - **Team news has two input paths.** Structured events (UI preset buttons) skip the LLM and go straight to availability. Free-text news (generated, or typed in the UI) goes through the LLM parser, which outputs the same structured availability. If the parse fails or names an unknown player, the news is rejected with a message and the XI is unchanged.
 
@@ -91,7 +91,7 @@ A thin adapter over the FastAPI service with no logic of its own. Tools: `predic
 |---|---|---|
 | Ingest | replayed events | events grouped by match |
 | Interpret | structured team-news events, or free-text news via the LLM parser | availability per player (or rejection) |
-| Pick XI | availability, roster, form | formation + 11 players with `p_start` |
+| Pick XI | availability, roster, form | formation + 11 players with `p_start`, and up to 2 alternatives per position |
 | Explain | picked XI | explanation per player |
 | Personalize | explanations, mode, language, favourite club | final response |
 
@@ -103,5 +103,5 @@ Correct starters out of 11 versus a "same XI as last match" baseline, on held-ou
 
 - **Event Hubs instead of the in-process queue:** cut unless time allows. Owner: user. Decide by Oct 25 feature freeze.
 - **Persistence:** none. Roster and events are files; prediction history, if needed, is in memory or SQLite. Postgres was cut (decided Oct 20).
-- **Formation-to-MILP mapping and formation priors:** defined in the optimizer change (change 2).
+- ~~Formation-to-MILP mapping and formation priors~~ Decided in `pstart-scoring-and-xi-optimizer`: one MILP per supported formation (1 GK, DEF, MID, FWD counts, middle bands as midfield), priors 1.0 / 0.85.
 - **Theme fit of a pre-match predictor:** decided not to ask the sponsor; accepted risk.
