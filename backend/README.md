@@ -29,3 +29,7 @@ Replay speed is controlled by the `speed` parameter, measured in match minutes p
 - `speed=0` delivers every event immediately (used in tests).
 - `speed=1.0` (the default and demo speed) replays a 90-minute match in about 90 seconds.
 - Higher values compress the timeline further, for example `speed=60` replays a match in 1.5 seconds.
+
+## Aliasing a private roster
+
+Put your private input at `private/real_roster.csv` (gitignored) with columns `real_club,real_player,number,position` (position is GK, DEF, MID or FWD; 6 clubs, at least 20 rows each). Then run `python backend/tools/alias_roster.py --seed 42`. It writes the synthetic `backend/data/roster.json` and the real-to-synthetic `private/mapping.json`. Without the private file it falls back to a seeded synthetic roster.

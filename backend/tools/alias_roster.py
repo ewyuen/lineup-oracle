@@ -12,7 +12,7 @@ BACKEND_ROOT = REPO_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from lineup_oracle.roster import CLUB_NAMES, CLUB_FORMATIONS, CLUB_STYLES, generate_synthetic_roster, write_roster
+from lineup_oracle.roster import CLUB_NAMES, CLUB_FORMATIONS, CLUB_STYLES, alias_roster, generate_synthetic_roster, write_roster
 
 
 def _read_template_csv(path: Path) -> list[dict[str, str]]:
@@ -54,10 +54,13 @@ def main() -> None:
         csv_path = repo_root / "private" / "real_roster.csv.example"
 
     rows = _read_template_csv(csv_path)
-    roster = generate_synthetic_roster(seed=args.seed)
+    if csv_path.name == "real_roster.csv":
+        roster, mapping = alias_roster(rows, seed=args.seed)
+        mapping["source"] = "private/real_roster.csv"
+    else:  # no private input: seeded synthetic roster, example CSV only seeds the mapping stub
+        roster = generate_synthetic_roster(seed=args.seed)
+        mapping = _create_mapping(seed=args.seed, rows=rows)
     write_roster(repo_root / args.roster_out, roster)
-
-    mapping = _create_mapping(seed=args.seed, rows=rows)
     mapping_path = repo_root / args.mapping_out
     mapping_path.parent.mkdir(parents=True, exist_ok=True)
     mapping_path.write_text(json.dumps(mapping, indent=2), encoding="utf-8")
