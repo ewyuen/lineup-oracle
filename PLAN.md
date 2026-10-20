@@ -4,9 +4,9 @@ Status: design agreed in the grill-me session. Final "shared understanding" conf
 
 ## Urgent actions (yours)
 1. ~~Register before Oct 20, 2026, 12:00 PM PT.~~ Done.
-2. Email the sponsor (rules section 11.6): "Does a lineup predictor built on a synthetic event pipeline fit the theme?"
+2. ~~Email the sponsor (rules section 11.6)~~ Skipped by decision; not asking the sponsor about theme fit.
 3. Submit by **Oct 27, 2026, 11:59 PM PT**. Plan: freeze features Oct 25, video Oct 26, submit the morning of Oct 27.
-4. Create the new repo as **private** now (registration is done, and the rules require a project created after registration). Make it **public before submitting**. Move this file and `openspec/` into it.
+4. ~~Create the new repo as **private**~~ Done (private repo created, files moved in). Still to do: make it **public before submitting**.
 
 Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md
 (Not yet compared with aka.ms/insidethegame or the Reactor page.)
@@ -14,13 +14,14 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 ## Outstanding items
 - [ ] Decide: keep or cut Postgres (recommended: cut, or keep for prediction history only).
 - [ ] Decide: the MCP server's role. Only `predict_lineup` calls it, and nothing else uses it.
-- [ ] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
+- [x] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
 - [ ] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change.
 - [ ] Add OpenSpec tasks: evals (change 4), OpenTelemetry (change 6), team-news controls (changes 3 and 5).
 - [ ] Demo video task (Oct 26).
 - [ ] Submission checklist: README, repo link, video, architecture diagram.
 - [ ] Make the repo public before submission, and check no `.env`, `private/` or real names are in the history.
-- [ ] Merge the two harness branches (`harness/agent-workflow-rules` first, then `harness/architecture-doc`) and push once the GitHub remote exists.
+- [x] Merge the harness branches and push (PRs #1 to #3 merged).
+- [ ] Delete the merged harness branches, local and remote: `harness/agent-workflow-rules`, `harness/architecture-doc`, `harness/read-architecture-rule`.
 
 ## Who builds what (Copilot Pro is monthly: $10 of token-metered AI Credits, so use it sparingly)
 | Tool | Does |
