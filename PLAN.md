@@ -12,7 +12,7 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 (Not yet compared with aka.ms/insidethegame or the Reactor page.)
 
 ## Outstanding items
-- [ ] Decide: keep or cut Postgres (recommended: cut, or keep for prediction history only).
+- [x] Decide: keep or cut Postgres. Cut: roster and events are files, history is in memory or SQLite if needed.
 - [x] Decide: the MCP server's role. A thin adapter over the API with `predict_lineup`, `submit_team_news`, `list_matches` and `get_match_xi`; the agent pipeline does not call it (see ARCHITECTURE.md).
 - [x] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
 - [ ] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change.
@@ -51,5 +51,5 @@ Check your usage on GitHub's billing page now and then. The legacy 300-premium-r
 - A pre-match predictor is not named in the rules. Theme fit (Stage 1, pass/fail) depends on the sponsor's reply.
 - gpt-4.1-mini is confirmed available. Still make one structured-output call early to check the parser works.
 - About 8 days solo with two languages, an MCP server and a UI is tight. Cut Event Hubs and the extras first.
-- Time: about 6 days to the Oct 25 freeze, not 8. Each change needs implementation, tests, human approval, archive, PR and merge. If you slip, cut in this order: Azure polish, Postgres, MCP server, Event Hubs, extra languages.
+- Time: about 6 days to the Oct 25 freeze, not 8. Each change needs implementation, tests, human approval, archive, PR and merge. If you slip, cut in this order: Azure polish, MCP server, Event Hubs, extra languages.
 - New-repo rule: this repo already has history. Decide whether to move only the final files into the new repo. The official rules have not been read in full.

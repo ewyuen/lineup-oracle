@@ -14,7 +14,6 @@ flowchart LR
     Replay --> Pipe["Agent pipeline<br/>(Agent Framework)"]
     Pipe <-->|parse / explain| LLM["Foundry gpt-4.1-mini"]
     Pipe --> API["FastAPI service"]
-    API <--> DB[("Postgres")]
     MCP["MCP server<br/>predict_lineup, submit_team_news, list_matches, get_match_xi"] --> API
     UI["ASP.NET Razor + HTMX UI"] --> API
 ```
@@ -44,7 +43,6 @@ flowchart LR
 flowchart LR
     U[User] --> UIc["Container App: UI"]
     UIc --> APIc["Container App: API + MCP"]
-    APIc --> PG[("Azure Postgres")]
     APIc --> F["Foundry<br/>gpt-4.1-mini"]
     UIc & APIc --> AI[App Insights]
 ```
@@ -85,7 +83,7 @@ The UI offers two controls: a preset button that sends a structured event (playe
 
 ### MCP server (draft)
 
-A thin adapter over the FastAPI service with no logic of its own. Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Any MCP client, such as GitHub Copilot or Claude Desktop, can run the whole flow: submit free-text team news, then read the new XI and explanation. The agent pipeline does not call MCP. It is the first thing cut after Azure polish and Postgres if time runs short.
+A thin adapter over the FastAPI service with no logic of its own. Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Any MCP client, such as GitHub Copilot or Claude Desktop, can run the whole flow: submit free-text team news, then read the new XI and explanation. The agent pipeline does not call MCP. It is the first thing cut after Azure polish if time runs short.
 
 ### Pipeline stages (draft)
 
@@ -104,6 +102,6 @@ Correct starters out of 11 versus a "same XI as last match" baseline, on held-ou
 ## Open decisions
 
 - **Event Hubs instead of the in-process queue:** cut unless time allows. Owner: user. Decide by Oct 25 feature freeze.
-- **Postgres schema:** defined in the FastAPI change (change 3).
+- **Persistence:** none. Roster and events are files; prediction history, if needed, is in memory or SQLite. Postgres was cut (decided Oct 20).
 - **Formation-to-MILP mapping and formation priors:** defined in the optimizer change (change 2).
 - **Theme fit of a pre-match predictor:** decided not to ask the sponsor; accepted risk.
