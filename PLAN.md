@@ -13,7 +13,7 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 
 ## Outstanding items
 - [ ] Decide: keep or cut Postgres (recommended: cut, or keep for prediction history only).
-- [ ] Decide: the MCP server's role. Only `predict_lineup` calls it, and nothing else uses it.
+- [x] Decide: the MCP server's role. A thin adapter over the API with `predict_lineup`, `submit_team_news`, `list_matches` and `get_match_xi`; the agent pipeline does not call it (see ARCHITECTURE.md).
 - [x] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
 - [ ] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change.
 - [ ] Add OpenSpec tasks: evals (change 4), OpenTelemetry (change 6), team-news controls (changes 3 and 5).
