@@ -55,11 +55,16 @@ def generate_fixtures(clubs: Iterable[str], matchdays: int = 10) -> list[list[tu
     return _fixture_round_robin(club_list, matchdays)
 
 
-def _pick_true_xi(players: list[Player], rng: random.Random, unavailable: set[str]) -> list[Player]:
+def _formation_counts(formation: str) -> dict[str, int]:
+    """'4-2-3-1' -> 4 DEF, 5 MID (2+3), 1 FWD: middle bands count as midfield."""
+    bands = [int(n) for n in formation.split("-")]
+    return {"GK": 1, "DEF": bands[0], "MID": sum(bands[1:-1]), "FWD": bands[-1]}
+
+
+def _pick_true_xi(players: list[Player], rng: random.Random, unavailable: set[str], formation: str) -> list[Player]:
     available = [player for player in players if player.id not in unavailable]
     chosen: list[Player] = []
-    positions = {"GK": 1, "DEF": 4, "MID": 4, "FWD": 2}
-    for position, count in positions.items():
+    for position, count in _formation_counts(formation).items():
         pos_players = [p for p in available if p.position == position]
         rng.shuffle(pos_players)
         chosen.extend(pos_players[:count])
@@ -96,7 +101,13 @@ def _append_club_team_news(events: list[Event], club: Club, match_id: str, rng: 
     rng.shuffle(candidates)
     unavailable: set[str] = set()
     for offset, kind in TEAM_NEWS_OFFSETS:
-        player = candidates.pop(0)
+        need = _formation_counts(club.formation)
+
+        def keeps_xi_possible(c: Player) -> bool:  # an absence must leave enough players for the formation
+            have = sum(1 for q in club.players if q.position == c.position and q.id not in unavailable)
+            return kind not in UNAVAILABLE_KINDS or have - 1 >= need[c.position]
+
+        player = candidates.pop(next(i for i, c in enumerate(candidates) if keeps_xi_possible(c)))
         text = rng.choice(TEAM_NEWS_TEMPLATES[kind]).format(club=club.name, player=player.name)
         events.append(
             Event(
@@ -116,8 +127,8 @@ def _append_club_team_news(events: list[Event], club: Club, match_id: str, rng: 
 
 
 def generate_match_metadata(ref_match_id: str, home_club: str, away_club: str, rng: random.Random, roster: Roster, unavailable: dict[str, set[str]]) -> dict[str, Any]:
-    home_players = _pick_true_xi(roster.clubs[home_club].players, rng, unavailable.get(home_club, set()))
-    away_players = _pick_true_xi(roster.clubs[away_club].players, rng, unavailable.get(away_club, set()))
+    home_players = _pick_true_xi(roster.clubs[home_club].players, rng, unavailable.get(home_club, set()), roster.clubs[home_club].formation)
+    away_players = _pick_true_xi(roster.clubs[away_club].players, rng, unavailable.get(away_club, set()), roster.clubs[away_club].formation)
     return {
         "id": ref_match_id,
         "match_id": ref_match_id,
@@ -138,6 +149,16 @@ def generate_match_metadata(ref_match_id: str, home_club: str, away_club: str, r
     }
 
 
+# (type, mean per club per match, spread, has a player, payload builder)
+EVENT_KINDS = [
+    ("pass", 440, 80, True, lambda rng, club, ids: {"success": True, "recipient": rng.choice(ids)}),
+    ("shot", 15, 5, True, lambda rng, club, ids: {"on_target": rng.choice([True, False]), "xg": round(rng.uniform(0.02, 0.4), 3)}),
+    ("tackle", 16, 5, True, lambda rng, club, ids: {"won": rng.choice([True, False])}),
+    ("possession_change", 8, 3, False, lambda rng, club, ids: {"team": club, "value": rng.choice(["won", "lost"])}),
+    ("pressure", 14, 4, False, lambda rng, club, ids: {"phase": "build-up", "intensity": rng.randint(1, 5)}),
+]
+
+
 def generate_match_events(roster: Roster, fixtures: list[list[tuple[str, str]]], seed: int = 42) -> list[Event]:
     rng = random.Random(seed)
     events: list[Event] = []
@@ -150,70 +171,17 @@ def generate_match_events(roster: Roster, fixtures: list[list[tuple[str, str]]],
             events.append(Event(**{k: v for k, v in metadata.items() if k in {"id", "match_id", "type", "minute", "club", "player", "payload", "simulated"}}))
             for club in (home_club, away_club):
                 club_players = roster.clubs[club].players
-                pass_count = _sample_count(rng, 440, 80)
-                shot_count = _sample_count(rng, 15, 5)
-                tackle_count = _sample_count(rng, 16, 5)
-                possession_count = _sample_count(rng, 8, 3)
-                pressure_count = _sample_count(rng, 14, 4)
-                for minute in range(0, 91, 9):
-                    if minute == 0:
-                        continue
-                    for _ in range(pass_count // 10):
-                        player = rng.choice(club_players)
+                player_ids = [p.id for p in club_players]
+                for kind, mean, spread, with_player, make_payload in EVENT_KINDS:
+                    for _ in range(_sample_count(rng, mean, spread)):
                         events.append(Event(
-                            id=_new_id(f"{club}-{match_id}-pass", len(events) + 1),
+                            id=_new_id(f"{club}-{match_id}-{kind}", len(events) + 1),
                             match_id=match_id,
-                            type="pass",
-                            minute=float(minute + rng.uniform(0.0, 8.9)),
+                            type=kind,
+                            minute=rng.uniform(0.5, 90.0),
                             club=club,
-                            player=player.id,
-                            payload={"success": True, "recipient": rng.choice([p.id for p in club_players])},
-                            simulated=True,
-                        ))
-                    for _ in range(shot_count // 10):
-                        player = rng.choice(club_players)
-                        events.append(Event(
-                            id=_new_id(f"{club}-{match_id}-shot", len(events) + 1),
-                            match_id=match_id,
-                            type="shot",
-                            minute=float(minute + rng.uniform(0.0, 8.9)),
-                            club=club,
-                            player=player.id,
-                            payload={"on_target": rng.choice([True, False]), "xg": round(rng.uniform(0.02, 0.4), 3)},
-                            simulated=True,
-                        ))
-                    for _ in range(tackle_count // 10):
-                        player = rng.choice(club_players)
-                        events.append(Event(
-                            id=_new_id(f"{club}-{match_id}-tackle", len(events) + 1),
-                            match_id=match_id,
-                            type="tackle",
-                            minute=float(minute + rng.uniform(0.0, 8.9)),
-                            club=club,
-                            player=player.id,
-                            payload={"won": rng.choice([True, False])},
-                            simulated=True,
-                        ))
-                    for _ in range(possession_count // 10):
-                        events.append(Event(
-                            id=_new_id(f"{club}-{match_id}-possession", len(events) + 1),
-                            match_id=match_id,
-                            type="possession_change",
-                            minute=float(minute + rng.uniform(0.0, 8.9)),
-                            club=club,
-                            player=None,
-                            payload={"team": club, "value": rng.choice(["won", "lost"])},
-                            simulated=True,
-                        ))
-                    for _ in range(pressure_count // 10):
-                        events.append(Event(
-                            id=_new_id(f"{club}-{match_id}-pressure", len(events) + 1),
-                            match_id=match_id,
-                            type="pressure",
-                            minute=float(minute + rng.uniform(0.0, 8.9)),
-                            club=club,
-                            player=None,
-                            payload={"phase": "build-up", "intensity": rng.randint(1, 5)},
+                            player=rng.choice(player_ids) if with_player else None,
+                            payload=make_payload(rng, club, player_ids),
                             simulated=True,
                         ))
             match_index += 1

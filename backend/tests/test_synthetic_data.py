@@ -160,6 +160,25 @@ def test_committed_roster_is_reproducible(tmp_path: Path) -> None:
     assert first.read_bytes() == ROSTER_PATH.read_bytes()
 
 
+def test_xi_follows_club_formation_and_all_event_types_appear() -> None:
+    roster = load_roster(ROSTER_PATH)
+    fixtures = generate_fixtures(sorted(roster.clubs), matchdays=10)
+    events = generate_match_events(roster, fixtures, seed=3)
+    by_id = {p.id: p for club in roster.clubs.values() for p in club.players}
+    for event in (e for e in events if e.type == "match_metadata"):
+        for side in ("home", "away"):
+            bands = [int(n) for n in event.payload[f"{side}_formation"].split("-")]
+            positions = [by_id[pid].position for pid in event.payload[f"{side}_xi"]]
+            assert [positions.count(x) for x in ("GK", "DEF", "FWD")] == [1, bands[0], bands[-1]]
+            assert positions.count("MID") == sum(bands[1:-1])
+    club_matches = {(e.match_id, e.club) for e in events if e.type == "pass"}
+    for kind in ("shot", "tackle", "pressure", "possession_change"):
+        seen = {(e.match_id, e.club) for e in events if e.type == kind}
+        assert len(seen) >= 0.9 * len(club_matches), kind
+    shots = [sum(1 for e in events if e.type == "shot" and (e.match_id, e.club) == cm) for cm in club_matches]
+    assert len({n % 10 for n in shots}) > 1
+
+
 def test_plausible_distribution_across_many_matches() -> None:
     roster = load_roster(ROSTER_PATH)
     fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)
