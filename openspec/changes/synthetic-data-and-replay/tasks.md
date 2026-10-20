@@ -6,8 +6,8 @@
 
 ## 1. Backend scaffold
 
-- [ ] 1.1 Create `backend/` with `pyproject.toml` (Python 3.12, pytest dev dependency) and the package `lineup_oracle`; verify `pytest` runs and reports zero tests collected without error
-- [ ] 1.2 Add `private/` and `.env` to `.gitignore` if missing and verify `git check-ignore private/x` prints the path
+- [x] 1.1 Create `backend/` with `pyproject.toml` (Python 3.12, pytest dev dependency) and the package `lineup_oracle`; verify `pytest` runs and reports zero tests collected without error
+- [x] 1.2 Add `private/` and `.env` to `.gitignore` if missing and verify `git check-ignore private/x` prints the path
 
 ## 2. Synthetic roster
 
