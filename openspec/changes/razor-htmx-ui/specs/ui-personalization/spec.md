@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Analyst and fan modes
-The page SHALL offer two modes. Analyst mode SHALL show each player's `p_start` as a percentage, the alternatives with their `p_start`, and a badge saying whether the explanation came from a template or the LLM. Fan mode SHALL hide numbers and the badge and show only names, shirt numbers and the explanation. The chosen mode SHALL be sent to the API with each prediction.
+The page SHALL offer two modes. Analyst mode SHALL show each player's `p_start` as a percentage, the alternatives with their `p_start`, and one badge for the whole lineup saying whether its explanations came from a template or the LLM (the API reports this once per lineup, as `llm_used`). Fan mode SHALL hide numbers and the badge and show only names, shirt numbers and the explanation. The chosen mode SHALL be sent to the API with each prediction.
 
 #### Scenario: Analyst view
 - **WHEN** the mode is analyst

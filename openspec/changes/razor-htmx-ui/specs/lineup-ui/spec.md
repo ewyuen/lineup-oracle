@@ -23,7 +23,7 @@ Each picked player SHALL have preset buttons for injury, suspension and doubt. P
 
 #### Scenario: Inject an injury
 - **WHEN** the user presses the injury button on a picked player
-- **THEN** the shown XI is replaced by the updated lineup, the player is no longer in it, and the rest of the page is unchanged
+- **THEN** the shown XI is replaced by the updated lineup, the player is no longer in it, a message names the player and the news, and the rest of the page is unchanged
 
 #### Scenario: Partial update
 - **WHEN** an HTMX request is made for a lineup update
@@ -41,7 +41,11 @@ When the API answers with an error, the page SHALL show the API's message inline
 
 #### Scenario: API down
 - **WHEN** the API cannot be reached during a team-news submission
-- **THEN** a service-unavailable banner is shown and the previous XI stays visible
+- **THEN** a service-unavailable banner with a retry button is shown and the previous XI stays visible
+
+#### Scenario: Retry
+- **WHEN** the user presses retry and the API is reachable again
+- **THEN** the banner is removed and the lineup is loaded again
 
 #### Scenario: API error message
 - **WHEN** the API answers 422 with a message
@@ -60,3 +64,22 @@ The page SHALL NOT show crests, logos or photos. Clubs and players appear as tex
 #### Scenario: Text only
 - **WHEN** any page is rendered
 - **THEN** it contains no image elements for clubs or players
+
+### Requirement: One session id per browser
+The UI SHALL create a random session id on the first visit, keep it in a cookie, and send it as `session_id` with every prediction and team-news call, so each visitor's news stays separate.
+
+#### Scenario: Same id on every call
+- **WHEN** the same browser makes a prediction and then a team-news call
+- **THEN** both calls carry the same `session_id`
+
+#### Scenario: Different browsers
+- **WHEN** two browsers each open the page for the first time
+- **THEN** they send different `session_id` values
+
+### Requirement: Only data the API provides
+The page SHALL show only fields the API returns (club and player names, shirt numbers, position, formation, `p_start`, explanation, alternatives, `llm_used`, matchday). It SHALL NOT show invented figures or panels such as model confidence, latency, win probability, kickoff time, venue or heatmaps.
+
+#### Scenario: No invented data
+- **WHEN** a lineup is shown
+- **THEN** every number on the page comes from the API response
+
