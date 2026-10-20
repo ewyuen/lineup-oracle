@@ -282,3 +282,14 @@ def test_slow_parse_does_not_block_other_sessions_news():
     other = client.post("/team_news", json=body(match, player_id=starter, kind="doubt", session_id="b"))
     assert other.status_code == 200 and time.monotonic() - started < 1.0
     slow.join()
+
+
+def test_settings_read_a_dotenv_file_but_real_variables_win(tmp_path, monkeypatch):
+    (tmp_path / ".env").write_text("LINEUP_LLM_ENDPOINT=https://e/\nLINEUP_LLM_DEPLOYMENT=from-file\n")
+    monkeypatch.chdir(tmp_path)
+    for name in ("LINEUP_LLM_ENDPOINT", "LINEUP_LLM_DEPLOYMENT", "LINEUP_LLM_API_KEY", "LINEUP_LLM_TIMEOUT"):
+        monkeypatch.setenv(name, "x")  # so the undo removes whatever the .env load adds
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("LINEUP_LLM_DEPLOYMENT", "from-env")
+    settings = LlmSettings.from_env()
+    assert settings.endpoint == "https://e/" and settings.deployment == "from-env"

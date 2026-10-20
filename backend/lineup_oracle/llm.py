@@ -4,6 +4,8 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from dotenv import find_dotenv, load_dotenv
+
 DEFAULT_TIMEOUT = 15.0
 
 
@@ -17,7 +19,9 @@ class LlmSettings:
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> LlmSettings | None:
         """Settings from LINEUP_LLM_* variables, or None (model off) unless endpoint and deployment are both set."""
-        env = os.environ if env is None else env
+        if env is None:
+            load_dotenv(find_dotenv(usecwd=True))  # a .env in the working directory or above; real variables win
+            env = os.environ
         endpoint, deployment = env.get("LINEUP_LLM_ENDPOINT"), env.get("LINEUP_LLM_DEPLOYMENT")
         if not endpoint or not deployment:
             return None
