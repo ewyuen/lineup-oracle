@@ -72,25 +72,30 @@ Generated team-news events are free text in `payload.text` (naming the club and 
 
 Match metadata records the actual starting XI and formation of both clubs, `payload.matchday` (1 to 10) and `payload.schema_version` (1). Event minutes are relative to each match's kick-off, so replay one match at a time. Source: `openspec/changes/synthetic-data-and-replay/design.md`.
 
-### `predict_lineup` (draft)
+### `predict_lineup` (stable)
 
-Request: club, fixture, mode (analyst or fan), language (en, es, zh-Hant).
-Response: formation; 11 players each with position slot, `p_start` and explanation; alternatives per slot; `llm_used` flag (false when the template fallback ran).
+`POST /predict_lineup` with `{match_id, club, mode, language, session_id}`. `session_id` is optional (default `"default"`, at most 64 characters): team news is kept per session, so visitors using the same deployment do not see each other's news. The UI sends one id per browser. `mode` is `analyst` or `fan` (default analyst); `language` is `en`, `es` or `zh-Hant` (default en); both are validated and echoed, and change nothing until the pipeline and UI changes. The club must play in the match.
+Response: `formation`; `players` (11, each with `id`, `name`, `number`, `position`, `p_start`, `explanation`); `alternatives` (up to 2 per position, same player shape); `llm_used` (false until the LLM explainer exists); `mode`; `language`. The prediction uses only the club's XIs from earlier matchdays plus the availability submitted for that match and club, never the match's own XI. Explanations are English templates for now.
+Errors: `{"detail": message}` with 404 for an unknown match and 422 for a club not in the match, a bad mode or language, or when no formation can be filled.
 
-### `submit_team_news` (draft)
+### `submit_team_news` (stable)
 
-The UI offers two controls: a preset button that sends a structured event (player, kind), and a free-text box that sends `text` for the LLM to parse. Generated news arrives through replay as text. All three go through the API, which feeds the event into the pipeline and returns the updated lineup, or a rejection message for unparseable free text.
+`POST /team_news` with the predict fields plus `player_id` and `kind` (`injury`, `suspension` or `doubt`). Injury and suspension mark the player out, doubt marks the player doubt, for that match, club and session only; the latest news for a player wins. The response is the updated `LineupOut` (same shape as `predict_lineup`). The structured path is what the UI preset buttons use. A request with `text` and no player and kind is rejected with 422 ("not available yet") until the LLM parser exists in the pipeline change. A player outside the club, an unknown match or a bad kind is rejected with no state change. Availability lives in memory and is lost on restart.
 
-### MCP server (draft)
+### Read-only operations (stable)
 
-A thin adapter over the FastAPI service with no logic of its own. Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Any MCP client, such as GitHub Copilot or Claude Desktop, can run the whole flow: submit free-text team news, then read the new XI and explanation. The agent pipeline does not call MCP. It is the first thing cut after Azure polish if time runs short.
+`GET /matches` returns `[{match_id, matchday, home_club, away_club}]` in matchday order. `GET /matches/{match_id}/xi` returns the recorded XI and formation of both clubs (404 for an unknown match). `GET /health` returns `{"status": "ok"}`. Run with `uvicorn lineup_oracle.api:create_app --factory`.
+
+### MCP server (stable)
+
+A thin adapter over the FastAPI service with no logic of its own (`lineup_oracle/mcp_server.py`, stdio transport). Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Each tool is one HTTP call to `LINEUP_API_URL` (default `http://127.0.0.1:8000`), and API errors come back as tool errors carrying the API's message. Any MCP client, such as GitHub Copilot or Claude Desktop, can submit structured team news and read the new XI; free text works once the pipeline change adds the parser. The agent pipeline does not call MCP. It is the first thing cut after Azure polish if time runs short.
 
 ### Pipeline stages (draft)
 
 | Stage | In | Out |
 |---|---|---|
 | Ingest | replayed events | events grouped by match |
-| Interpret | structured team-news events, or free-text news via the LLM parser | availability per player (or rejection) |
+| Interpret | structured team-news events (built), or free-text news via the LLM parser (pipeline change) | availability per player (or rejection) |
 | Pick XI | availability, roster, form | formation + 11 players with `p_start`, and up to 2 alternatives per position |
 | Explain | picked XI | explanation per player |
 | Personalize | explanations, mode, language, favourite club | final response |

@@ -37,3 +37,9 @@ Replay speed is controlled by the `speed` parameter, measured in match minutes p
 `lineup_oracle.optimizer.pick_xi(club, scores)` solves one SciPy MILP per supported formation, multiplies the total by the formation prior (1.0 for the club's usual formation, 0.85 otherwise) and returns the best `XI` (formation, 11 players with `p_start`, up to 2 alternatives per position). It raises `ValueError` naming the club if no formation can be filled. Ties go to the lower player id.
 
 The generator draws each true XI with weight `quality ** 4`, so better players start more often.
+
+## API and MCP server
+
+Run the API from `backend/`: `uvicorn lineup_oracle.api:create_app --factory` (port 8000). It loads `data/roster.json` and `data/events.jsonl` if present, otherwise generates the same data in memory from seed 42. Regenerate the events file with the command above if it was made before the `matchday` field existed. Operations: `GET /matches`, `GET /matches/{match_id}/xi`, `POST /predict_lineup`, `POST /team_news`, `GET /health`. Team news accepts a player id and a kind (`injury`, `suspension`, `doubt`); free text is rejected until the LLM parser exists. Availability is in memory only and kept per `session_id` (default `"default"`), so separate visitors do not affect each other.
+
+Run the MCP server (stdio) with `python -m lineup_oracle.mcp_server`. It forwards four tools to the API at `LINEUP_API_URL` (default `http://127.0.0.1:8000`).
