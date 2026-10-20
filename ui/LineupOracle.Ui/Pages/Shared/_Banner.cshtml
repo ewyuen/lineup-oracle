@@ -1,0 +1,14 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<div id="service-banner" class="service-banner" role="status" hidden="@(!Model.IsUnavailable)">
+    @if (Model.IsUnavailable)
+    {
+        <span class="banner-copy">@T["ServiceUnavailable"]</span>
+        <a class="button button-warning" asp-page="/Index" asp-page-handler="Lineup"
+           asp-route-matchId="@Model.SelectedMatchId" asp-route-club="@Model.SelectedClub" asp-route-mode="@Model.Mode"
+           hx-get="/?handler=Lineup&amp;matchId=@Uri.EscapeDataString(Model.SelectedMatchId)&amp;club=@Uri.EscapeDataString(Model.SelectedClub)&amp;mode=@Model.Mode"
+           hx-target="#lineup" hx-swap="outerHTML">@T["Retry"]</a>
+    }
+</div>

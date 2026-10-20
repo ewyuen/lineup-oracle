@@ -1,0 +1,39 @@
+@model LineupOracle.Ui.Pages.PlayerCardViewModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<article class="player-card" data-player-id="@Model.Player.Id">
+    <div class="player-heading">
+        <span class="shirt-number">#@Model.Player.Number</span>
+        <h3>@Model.Player.Name</h3>
+    </div>
+    <p class="player-position">@Model.Player.Position</p>
+    @if (Model.Mode == "analyst")
+    {
+        <p class="probability @(Model.Player.PStart < 0.5 ? "probability-low" : "")">
+            @T["PStart"] @Math.Round(Model.Player.PStart * 100)%
+        </p>
+    }
+    <p class="explanation">@Model.Explanation</p>
+    <div class="player-actions">
+        @foreach (var (kind, label, className) in new[]
+        {
+            ("injury", T["Injure"].Value, "button-danger"),
+            ("suspension", T["Suspend"].Value, "button-danger"),
+            ("doubt", T["Doubt"].Value, "button-warning")
+        })
+        {
+            <form method="post" asp-page="/Index" asp-page-handler="News">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="matchId" value="@Model.MatchId" />
+                <input type="hidden" name="club" value="@Model.Club" />
+                <input type="hidden" name="mode" value="@Model.Mode" />
+                <input type="hidden" name="playerId" value="@Model.Player.Id" />
+                <input type="hidden" name="playerName" value="@Model.Player.Name" />
+                <input type="hidden" name="kind" value="@kind" />
+                <button type="submit" class="button button-small @className"
+                        hx-post="/?handler=News" hx-target="#lineup" hx-swap="outerHTML">@label</button>
+            </form>
+        }
+    </div>
+</article>

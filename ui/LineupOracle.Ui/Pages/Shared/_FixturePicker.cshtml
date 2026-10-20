@@ -1,0 +1,81 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<section class="panel fixture-panel">
+    <h2>@T["Fixtures"]</h2>
+    @if (Model.Matches.Count == 0)
+    {
+        <p class="muted">@T["NoFixtures"]</p>
+    }
+    else
+    {
+        <form method="get" asp-page="/Index" class="fixture-form">
+            <input type="hidden" name="club" value="@Model.SelectedClub" />
+            <input type="hidden" name="mode" value="@Model.Mode" />
+            <label for="matchId">@T["ChooseFixture"]</label>
+            <select id="matchId" name="matchId">
+                @foreach (var matchday in Model.Matches.GroupBy(match => match.Matchday).OrderBy(group => group.Key))
+                {
+                    <optgroup label="@string.Format(T["Matchday"].Value, matchday.Key)">
+                        @foreach (var match in matchday)
+                        {
+                            <option value="@match.MatchId" selected="@(Model.SelectedMatchId == match.MatchId)">
+                                @string.Format(T["MatchdayFixture"].Value, match.Matchday, match.HomeClub, match.AwayClub)
+                            </option>
+                        }
+                    </optgroup>
+                }
+            </select>
+            <button class="button button-secondary" type="submit">@T["ChooseFixture"]</button>
+        </form>
+
+        @if (Model.SelectedMatch is not null)
+        {
+            <h3 class="subheading">@T["ChooseClub"]</h3>
+            <div class="club-options">
+                @foreach (var (clubName, side) in new[]
+                {
+                    (Model.SelectedMatch.HomeClub, "Home"),
+                    (Model.SelectedMatch.AwayClub, "Away")
+                })
+                {
+                    <div class="club-choice">
+                        <form method="get" asp-page="/Index">
+                            <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
+                            <input type="hidden" name="club" value="@clubName" />
+                            <input type="hidden" name="mode" value="@Model.Mode" />
+                            <button class="club-button @(Model.SelectedClub == clubName ? "active" : "")" type="submit" aria-pressed="@(Model.SelectedClub == clubName)">
+                                <span class="club-dot" style="--club-color: @ClubColor(clubName)"></span>
+                                @clubName <span class="side-label">@T[side]</span>
+                            </button>
+                        </form>
+                        <form method="post" asp-page-handler="Favourite" class="favourite-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="favouriteClub" value="@clubName" />
+                            <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
+                            <input type="hidden" name="club" value="@Model.SelectedClub" />
+                            <input type="hidden" name="mode" value="@Model.Mode" />
+                            <button class="favourite-button" type="submit" aria-label="@T["MarkFavourite"]" title="@T["MarkFavourite"]">
+                                @(Model.FavouriteClub == clubName ? "★" : "☆")
+                            </button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+    }
+</section>
+
+@functions {
+    private static string ClubColor(string club) => club switch
+    {
+        "Harbor City" => "#38BDF8",
+        "Northmere" => "#F97316",
+        "Ravenside" => "#A855F7",
+        "Stonebridge" => "#EAB308",
+        "Summit Vale" => "#14B8A6",
+        "Westbrook" => "#EC4899",
+        _ => "#86948A"
+    };
+}
