@@ -31,7 +31,7 @@ The clubs, players, matches and team news are invented and generated from a seed
 |---|---|
 | Synthetic roster, event generator and replay | Built |
 | P(start) scoring and XI optimizer | Built |
-| FastAPI service and MCP server | Planned |
+| FastAPI service and MCP server | Built |
 | Agent pipeline and LLM explanations | Planned |
 | Razor Pages and HTMX UI | Planned |
 | Azure deployment (Bicep) | Planned |
@@ -46,7 +46,7 @@ python -m pytest -q
 python -m lineup_oracle.events --seed 42 --out data/events.jsonl
 ```
 
-More in [backend/README.md](backend/README.md). Run steps for the whole system will be added once the API, UI and deployment are built.
+Run the API with `uvicorn lineup_oracle.api:create_app --factory`. More in [backend/README.md](backend/README.md). Run steps for the whole system will be added once the API, UI and deployment are built.
 
 ## More
 

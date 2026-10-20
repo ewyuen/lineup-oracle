@@ -15,8 +15,9 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 - [x] Decide: keep or cut Postgres. Cut: roster and events are files, history is in memory or SQLite if needed.
 - [x] Decide: the MCP server's role. A thin adapter over the API with `predict_lineup`, `submit_team_news`, `list_matches` and `get_match_xi`; the agent pipeline does not call it (see ARCHITECTURE.md).
 - [x] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
-- [ ] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change.
+- [ ] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change. Google Stitch brief is in `private/stitch-brief.md`; commit the chosen layout as ASCII (task 1.2 of `razor-htmx-ui`).
 - [ ] Add OpenSpec tasks: evals (change 4), OpenTelemetry (change 6), team-news controls (changes 3 and 5).
+- [ ] CI workflow on GitHub (run `pytest`, later `dotnet test` and a Bicep check): deferred, build it together with change 6 (Azure).
 - [ ] Demo video task (Oct 26).
 - [ ] Submission checklist: README, repo link, video, architecture diagram.
 - [ ] Make the repo public before submission, and check no `.env`, `private/` or real names are in the history.
