@@ -25,6 +25,7 @@ def solve_formation(club: Club, scores: dict[str, float], formation: str) -> lis
     """Best 11 for one formation as a MILP, or None if the squad cannot fill it."""
     # Out players (score 0) are left out, so a shortage is infeasible instead of picking them.
     # Sorted by id, with a tiny penalty per index, so ties go to the lower id.
+    # shortcut: score gaps below ~2e-4 (20 players x 1e-5) count as ties; shrink the penalty if the weights ever get finer.
     pool = sorted((p for p in club.players if scores[p.id] > 0), key=lambda p: p.id)
     if not pool:
         return None

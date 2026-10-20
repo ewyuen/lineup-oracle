@@ -44,6 +44,12 @@ def recent_xis(events: Iterable[Event], club: str, matchday: int) -> list[list[s
 def p_start_scores(club: Club, recent: list[list[str]], availability: Mapping[str, str] | None = None) -> dict[str, float]:
     """P(start) per player id: availability * (0.7 * quality + 0.3 * share of last 5 starts)."""
     availability = availability or {}
+    known = {p.id for p in club.players}
+    for pid, status in availability.items():
+        if pid not in known:
+            raise ValueError(f"Availability names unknown player {pid!r} for {club.name}")
+        if status not in AVAILABILITY_FACTOR:
+            raise ValueError(f"Unknown availability {status!r} for {pid}")
     last = recent[-RECENT_MATCHES:]
     scores: dict[str, float] = {}
     for p in club.players:

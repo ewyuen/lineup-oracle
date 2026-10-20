@@ -79,6 +79,13 @@ def test_scoring_deterministic():
     assert p_start_scores(CLUB, history) == p_start_scores(CLUB, history)
 
 
+def test_bad_availability_input_rejected():
+    with pytest.raises(ValueError, match="unknown player"):
+        p_start_scores(CLUB, [], {"nobody": "out"})
+    with pytest.raises(ValueError, match="Unknown availability"):
+        p_start_scores(CLUB, [], {CLUB.players[0].id: "injured"})
+
+
 # --- optimizer ---------------------------------------------------------
 
 
@@ -136,6 +143,14 @@ def test_ties_go_to_lower_id_and_repeat():
     for pos, count in _formation_counts("4-3-3").items():
         lowest = sorted(p.id for p in _by_position(CLUB, pos))[:count]
         assert sorted(i for i in first if i in {p.id for p in _by_position(CLUB, pos)}) == lowest
+
+
+def test_id_tiebreak_does_not_beat_a_real_gap():
+    pool = sorted(_by_position(CLUB, "FWD"), key=lambda p: p.id)
+    scores = {p.id: 0.5 for p in CLUB.players}
+    scores[pool[-1].id] = 0.502  # highest id, small but real lead
+    xi = solve_formation(CLUB, scores, "4-3-3")
+    assert pool[-1].id in {p.id for p in xi}
 
 
 # --- generator ---------------------------------------------------------
