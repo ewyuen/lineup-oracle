@@ -11,7 +11,7 @@ from lineup_oracle.events import (
     generate_fixtures,
     generate_match_events,
 )
-from lineup_oracle.replay import ReplaySession, replay_all_subscribers
+from lineup_oracle.replay import ReplaySession
 from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster, load_roster, write_roster
 
 
@@ -274,25 +274,25 @@ def test_replay_under_two_minutes_for_demo_speed(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(replay_module.asyncio, "sleep", _record_sleep)
 
+    roster = load_roster(ROSTER_PATH)
+    fixtures = generate_fixtures(sorted(roster.clubs), matchdays=10)
+    match = [e.to_dict() for e in generate_match_events(roster, fixtures, seed=1) if e.match_id == "match-001"]
+    assert min(e["minute"] for e in match) < 0  # includes pre-match team news
+
     async def _run() -> None:
-        session = ReplaySession(
-            [
-                {"id": f"evt-{minute:02d}", "minute": float(minute), "payload": {"kind": "pass"}}
-                for minute in range(0, 91, 1)
-            ],
-            speed=1.0,
-        )
-        await session.run()
+        await ReplaySession(match, speed=1.0).run()
 
     asyncio.run(_run())
-    assert sum(waited) == pytest.approx(90.0)
+    assert sum(waited) == pytest.approx(max(e["minute"] for e in match), abs=1e-6)
     assert sum(waited) < 120
 
 
 def test_multiple_subscribers_receive_identical_sequences() -> None:
     async def _run() -> None:
         events = [{"id": f"e-{minute:02d}", "minute": float(minute), "payload": {}} for minute in range(20)]
-        queues, emitted = await replay_all_subscribers(events, speed=0)
+        session = ReplaySession(events, speed=0)
+        queues = [await session.subscribe() for _ in range(2)]
+        emitted = await session.run()
         sequences = [[queue.get_nowait()["id"] for _ in range(queue.qsize())] for queue in queues]
         expected = [event["id"] for event in events]
         assert sequences[0] == sequences[1] == expected

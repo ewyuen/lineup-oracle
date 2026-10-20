@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import heapq
-from collections.abc import Iterable
 from typing import Any
 
 
@@ -38,7 +37,8 @@ class ReplaySession:
         while self._events:
             await asyncio.sleep(0)
             if effective_speed > 0 and last is not None:
-                wait = max(0.0, (self._events[0][0] - last) / effective_speed)
+                # time before kick-off (minute < 0) is not slowed down
+                wait = max(0.0, (max(self._events[0][0], 0.0) - max(last, 0.0)) / effective_speed)
                 if wait > 0:
                     await asyncio.sleep(wait)
             # pop after waiting, so an event injected during the wait that is earlier goes first
@@ -48,15 +48,3 @@ class ReplaySession:
             for queue in self._subscribers:
                 await queue.put(item)
         return emitted
-
-
-async def replay(events: Iterable[dict[str, Any]], speed: float = 1.0) -> list[dict[str, Any]]:
-    session = ReplaySession(list(events), speed=speed)
-    return await session.run()
-
-
-async def replay_all_subscribers(events: Iterable[dict[str, Any]], speed: float = 1.0) -> tuple[list[asyncio.Queue[dict[str, Any]]], list[dict[str, Any]]]:
-    session = ReplaySession(list(events), speed=speed)
-    subscribers = [await session.subscribe() for _ in range(2)]
-    emitted = await session.run()
-    return subscribers, emitted

@@ -27,5 +27,5 @@ Team-news events use free text inside the `payload.text` field and are emitted b
 
 Replay speed is controlled by the `speed` parameter, measured in match minutes per real second:
 - `speed=0` delivers every event immediately (used in tests).
-- `speed=1.0` (the default and demo speed) replays a 90-minute match in about 90 seconds.
+- `speed=1.0` (the default and demo speed) replays a 90-minute match in about 90 seconds. Pre-kick-off team news (negative minutes) is delivered without waiting, so a whole match including its news still takes about 90 seconds.
 - Higher values compress the timeline further, for example `speed=60` replays a match in 1.5 seconds.
