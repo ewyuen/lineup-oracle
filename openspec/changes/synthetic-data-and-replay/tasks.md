@@ -15,7 +15,7 @@
 ## 3. Synthetic events
 
 - [ ] 3.1 Implement fixtures for about 10 matchdays; verify a test that each club plays once per matchday and each matchday has 3 matches
-- [ ] 3.2 Implement team-news events and true-XI selection; verify a test that no injured or suspended player is in the true XI
+- [ ] 3.2 Implement team-news events with seeded free-text templates (club and player named in `payload.text`) and true-XI selection; verify tests that no injured or suspended player is in the true XI, that each text names a player of its club, and that texts are identical for the same seed
 - [ ] 3.3 Implement per-match event generation with the schema in design.md; verify tests for event fields, 11 distinct starters per club, and identical output for the same seed
 - [ ] 3.4 Add the plausibility test (100 matches: mean passes 300 to 600, mean shots 8 to 20); verify it passes and tune distributions if not
 - [ ] 3.5 Add `python -m lineup_oracle.events --seed N --out backend/data/events.jsonl` and document the command and schema in `backend/README.md`; verify the documented command runs as written
