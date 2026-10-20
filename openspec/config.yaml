@@ -40,3 +40,19 @@ context: |
   All data is synthetic (rule 4.7): invented club/player names, no crests/logos/photos; the real-to-synthetic
   mapping is private and never committed. Deterministic code picks the XI; the LLM only parses and explains,
   and the API must still return an XI if the LLM fails. Solo build, about 8 days: keep changes small.
+
+rules:
+  tasks:
+    - Include unit tests for the change's new logic as explicit tasks, and a final task that runs the full test suite.
+    - First task creates the feature branch feature/<change-name>.
+    - Last task is a human approval gate (HITL): stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it.
+
+operations:
+  apply:
+    guidance:
+      - Work on the feature branch feature/<change-name>, never on main. The PR goes from that branch to main.
+      - Write the unit tests with the code; do not mark the change done until they pass.
+      - After implementation and tests pass, summarize results and stop for human approval. Do not merge to main or archive without it. Once approved, run the OpenSpec archive, then create a PR and merge it.
+  archive:
+    guidance:
+      - Archive once the user has approved the change, never before. After archiving, create a PR from the feature branch and merge it.
