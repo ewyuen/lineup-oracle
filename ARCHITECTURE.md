@@ -19,7 +19,7 @@ flowchart LR
     UI["ASP.NET Razor + HTMX UI"] --> API
 ```
 
-All data is synthetic: invented clubs and players, no crests, logos or photos. The real-to-synthetic mapping stays in gitignored `private/`.
+All data is synthetic: invented clubs and players, no crests, logos or photos.
 
 ## Pipeline
 
