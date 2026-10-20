@@ -246,6 +246,25 @@ def test_replay_order_instant_delivery_and_injection() -> None:
     asyncio.run(_run())
 
 
+def test_injection_during_wait_is_delivered_before_later_events() -> None:
+    async def _run() -> None:
+        session = ReplaySession(
+            [{"id": "a", "minute": 1.0}, {"id": "b", "minute": 40.0}],
+            speed=1000.0,  # real sleeps, short enough for a test
+        )
+
+        async def _inject_during_wait() -> None:
+            await asyncio.sleep(0.01)  # run() is now waiting for minute 40
+            await session.inject({"id": "injury", "minute": 12.0})
+
+        task = asyncio.create_task(_inject_during_wait())
+        delivered = await session.run()
+        await task
+        assert [e["id"] for e in delivered] == ["a", "injury", "b"]
+
+    asyncio.run(_run())
+
+
 def test_replay_under_two_minutes_for_demo_speed(monkeypatch: pytest.MonkeyPatch) -> None:
     waited: list[float] = []
 

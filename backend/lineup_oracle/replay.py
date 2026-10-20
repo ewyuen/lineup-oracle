@@ -37,11 +37,12 @@ class ReplaySession:
         last: float | None = None
         while self._events:
             await asyncio.sleep(0)
-            scheduled_for, _, item = heapq.heappop(self._events)
             if effective_speed > 0 and last is not None:
-                wait = max(0.0, (scheduled_for - last) / effective_speed)
+                wait = max(0.0, (self._events[0][0] - last) / effective_speed)
                 if wait > 0:
                     await asyncio.sleep(wait)
+            # pop after waiting, so an event injected during the wait that is earlier goes first
+            scheduled_for, _, item = heapq.heappop(self._events)
             last = scheduled_for
             emitted.append(item)
             for queue in self._subscribers:
