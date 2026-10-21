@@ -96,7 +96,7 @@ The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI s
 
 ```text
 +--------------------------------------------------------------------------------+
-| LINEUP ORACLE                         Mode: [Analyst | Fan]  Language: [en v] |
+| LINEUP ORACLE                                                Language: [en v] |
 | [Service unavailable banner: retry]                                            |
 +--------------------------------------+-----------------------------------------+
 | FIXTURES                             | LINEUP                                  |
@@ -120,7 +120,7 @@ The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI s
 +--------------------------------------+-----------------------------------------+
 ```
 
-Each player card has text-only name, shirt number, position and explanation, plus preset injury, suspension and doubt buttons. Analyst mode also shows API `p_start` values; fan mode hides them. The last lineup stays visible when an API error occurs. There are no crests, logos, photos, invented metrics, or panels for data the API does not return.
+Each player card has text-only name, shirt number, position and explanation, plus preset injury, suspension and doubt buttons. The UI always runs in analyst mode and shows API `p_start` values. The mode switch is hidden to keep the demo simple; the API and `/?mode=fan` still support fan mode, which hides them. The last lineup stays visible when an API error occurs. There are no crests, logos, photos, invented metrics, or panels for data the API does not return.
 
 ### Pipeline stages (stable)
 
