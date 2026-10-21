@@ -7,38 +7,4 @@
     ViewData["Title"] = T["AppTitle"];
 }
 
-<main class="app-shell">
-    <header class="topbar">
-        <a class="brand" asp-page="/Index">
-            <span class="brand-name">@T["AppTitle"]</span>
-            <span class="brand-subtitle">@T["AppSubtitle"]</span>
-        </a>
-        <div class="preference-controls">
-            <form method="post" asp-page-handler="Language" class="language-form">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
-                <input type="hidden" name="club" value="@Model.SelectedClub" />
-                <input type="hidden" name="mode" value="@Model.Mode" />
-                <label class="control-label" for="language">@T["Language"]</label>
-                <select id="language" name="language" aria-label="@T["Language"]">
-                    <option value="en" selected="@(Model.Language == "en")">@T["English"]</option>
-                    <option value="es" selected="@(Model.Language == "es")">@T["Spanish"]</option>
-                    <option value="zh-Hant" selected="@(Model.Language == "zh-Hant")">@T["TraditionalChinese"]</option>
-                </select>
-                <button class="button button-secondary" type="submit">@T["Submit"]</button>
-            </form>
-        </div>
-    </header>
-
-    @await Html.PartialAsync("_Banner", Model)
-
-    <div class="content-grid">
-        <aside class="context-rail">
-            @await Html.PartialAsync("_FixturePicker", Model)
-            @await Html.PartialAsync("_TeamNews", Model)
-        </aside>
-        <section class="pitch-column" aria-label="@T["Lineup"]">
-            @await Html.PartialAsync("_Lineup", Model)
-        </section>
-    </div>
-</main>
+@await Html.PartialAsync("_AppShell", Model)

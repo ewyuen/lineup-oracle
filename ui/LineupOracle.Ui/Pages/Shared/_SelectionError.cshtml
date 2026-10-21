@@ -1,0 +1,13 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+@if (Model.IsUnavailable)
+{
+    @await Html.PartialAsync("_Banner", Model)
+}
+else if (!string.IsNullOrWhiteSpace(Model.ApiError))
+{
+    <p class="error-message">@Model.ApiError</p>
+}
+@await Html.PartialAsync("_FixturePicker", Model)

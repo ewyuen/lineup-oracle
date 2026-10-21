@@ -107,6 +107,8 @@ public sealed class LineupUiTests
         Assert.DoesNotContain("data-player-id=\"player-1\"", html);
         Assert.Contains("Ari Crest marked injured; XI updated", html);
         Assert.DoesNotContain("fixture-panel", html);
+        Assert.Contains("hx-post=\"/?handler=News\"", html);
+        Assert.Contains("name=\"__RequestVerificationToken\"", html);
 
         var call = handler.Calls.Last(item => item.Path.EndsWith("/team_news", StringComparison.Ordinal));
         using var body = JsonDocument.Parse(call.Body);
@@ -116,7 +118,7 @@ public sealed class LineupUiTests
     }
 
     [Fact]
-    public async Task HtmxLineupHandlerReturnsOnlyLineupFragment()
+    public async Task HtmxLineupHandlerReturnsOnlyWorkspaceFragment()
     {
         using var handler = new StubApiHandler();
         using var factory = new UiFactory(handler);
@@ -127,9 +129,100 @@ public sealed class LineupUiTests
         using var response = await client.SendAsync(request);
         var html = await response.Content.ReadAsStringAsync();
 
+        Assert.Contains("id=\"workspace\"", html);
         Assert.Contains("id=\"lineup\"", html);
+        Assert.Contains("fixture-panel", html);
+        Assert.Contains("news-panel", html);
+        Assert.Contains("hx-post=\"/?handler=News\"", html);
+        Assert.Contains("name=\"__RequestVerificationToken\"", html);
         Assert.DoesNotContain("<html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("fixture-panel", html);
+    }
+
+    [Fact]
+    public async Task FixtureAndClubFormsUseHtmxAndReturnSynchronizedWorkspace()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var initial = await client.GetStringAsync("/");
+        Assert.Equal(5, Regex.Matches(initial, "hx-target=\"\\#workspace\"").Count);
+        Assert.Equal(5, Regex.Matches(initial, "hx-push-url=\"true\"").Count);
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/?handler=Lineup&matchId=match-2&club=Summit%20Vale&mode=analyst");
+        request.Headers.Add("HX-Request", "true");
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("id=\"workspace\"", html);
+        Assert.Contains("value=\"match-2\" selected=\"selected\"", html);
+        Assert.Contains("name=\"club\" value=\"Summit Vale\"", html);
+        Assert.Contains("<h1>Summit Vale</h1>", html);
+        Assert.DoesNotContain("<html", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task FailedHtmxSelectionRestoresLastWorkspaceAndRetryTargetsRequestedSelection()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        Assert.Contains("<h1>Harbor City</h1>", initial);
+
+        handler.FailPredictions = true;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/?handler=Lineup&matchId=match-2&club=Summit%20Vale&mode=analyst&previousMatchId=match-1&previousClub=Harbor%20City&selectionUpdate=true");
+        request.Headers.Add("HX-Request", "true");
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("#service-banner", response.Headers.GetValues("HX-Retarget").Single());
+        Assert.Contains("id=\"service-banner\"", html);
+        Assert.Contains("hx-swap-oob=\"outerHTML\"", html);
+        Assert.Contains("match-1", html);
+        Assert.Contains("match-2", html);
+        Assert.Contains("club=Summit%20Vale", html);
+        Assert.DoesNotContain("id=\"workspace\"", html);
+
+        handler.FailPredictions = false;
+        using var retry = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/?handler=Lineup&matchId=match-2&club=Summit%20Vale&mode=analyst");
+        retry.Headers.Add("HX-Request", "true");
+        using var retryResponse = await client.SendAsync(retry);
+        var retryHtml = await retryResponse.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"workspace\"", retryHtml);
+        Assert.Contains("<h1>Summit Vale</h1>", retryHtml);
+    }
+
+    [Fact]
+    public async Task RejectedHtmxSelectionShowsApiMessageAndRestoresLastWorkspace()
+    {
+        using var handler = new StubApiHandler { PredictionStatusCode = HttpStatusCode.UnprocessableEntity };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        await client.GetStringAsync("/");
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/?handler=Lineup&matchId=match-2&club=Summit%20Vale&mode=analyst&previousMatchId=match-1&previousClub=Harbor%20City&selectionUpdate=true");
+        request.Headers.Add("HX-Request", "true");
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("#news-message", response.Headers.GetValues("HX-Retarget").Single());
+        Assert.Contains("Selected fixture prediction was rejected.", html);
+        Assert.Contains("hx-swap-oob=\"outerHTML\"", html);
+        Assert.Contains("match-1", html);
+        Assert.DoesNotContain("id=\"workspace\"", html);
     }
 
     [Fact]
@@ -168,6 +261,7 @@ public sealed class LineupUiTests
         using var client = factory.CreateClient();
         var initial = await client.GetStringAsync("/");
         Assert.Contains("Service unavailable", initial);
+        Assert.Contains("hx-target=\"#workspace\"", initial);
 
         handler.FailAll = false;
         using var request = new HttpRequestMessage(HttpMethod.Get, "/?handler=Lineup&matchId=match-1&club=Harbor%20City&mode=analyst");
@@ -177,6 +271,7 @@ public sealed class LineupUiTests
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Contains("id=\"lineup\"", html);
+        Assert.Contains("id=\"workspace\"", html);
         Assert.Contains("hx-swap-oob=\"outerHTML\"", html);
         Assert.DoesNotContain("Service unavailable", html);
     }
@@ -283,6 +378,38 @@ public sealed class LineupUiTests
         Assert.Equal(language, JsonDocument.Parse(prediction.Body).RootElement.GetProperty("language").GetString());
     }
 
+    [Theory]
+    [InlineData("en", "Forwards", "Language")]
+    [InlineData("es", "Delanteros", "Idioma")]
+    [InlineData("zh-Hant", "前鋒", "語言")]
+    public async Task HtmxLanguageChangeReturnsLocalizedApplicationShell(
+        string language,
+        string expectedTier,
+        string expectedLanguageLabel)
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        using var request = HtmxPost("/?handler=Language", Form(ExtractAntiforgeryToken(initial),
+            ("language", language),
+            ("matchId", "match-1"),
+            ("club", "Harbor City"),
+            ("mode", "analyst")));
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("id=\"app-shell\"", html);
+        Assert.Contains(expectedTier, WebUtility.HtmlDecode(html));
+        Assert.Contains(expectedLanguageLabel, WebUtility.HtmlDecode(html));
+        Assert.Contains("<h1>Harbor City</h1>", html);
+        Assert.DoesNotContain("<html", html, StringComparison.OrdinalIgnoreCase);
+        var prediction = handler.Calls.Last(call => call.Path.EndsWith("/predict_lineup", StringComparison.Ordinal));
+        Assert.Equal(language, JsonDocument.Parse(prediction.Body).RootElement.GetProperty("language").GetString());
+    }
+
     [Fact]
     public async Task FavouritePreselectsOnlyWhenTheMatchIncludesThatClub()
     {
@@ -311,6 +438,37 @@ public sealed class LineupUiTests
 
         Assert.Equal("Northmere", predictions[^2]);
         Assert.Equal("Ravenside", predictions[^1]);
+    }
+
+    [Fact]
+    public async Task HtmxFavouriteUpdateSavesCookieAndReturnsUpdatedWorkspace()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        using var request = HtmxPost("/?handler=Favourite", Form(ExtractAntiforgeryToken(initial),
+            ("favouriteClub", "Northmere"),
+            ("matchId", "match-1"),
+            ("club", "Harbor City"),
+            ("mode", "analyst"),
+            ("previousMatchId", "match-1"),
+            ("previousClub", "Harbor City")));
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("/?matchId=match-1&club=Northmere&mode=analyst",
+            response.Headers.GetValues("HX-Push-Url").Single());
+        Assert.Contains("id=\"workspace\"", html);
+        Assert.Contains("★", WebUtility.HtmlDecode(html));
+        Assert.Contains("<h1>Northmere</h1>", html);
+        Assert.DoesNotContain("<html", html, StringComparison.OrdinalIgnoreCase);
+
+        await client.GetAsync("/?matchId=match-1");
+        var prediction = handler.Calls.Last(call => call.Path.EndsWith("/predict_lineup", StringComparison.Ordinal));
+        Assert.Equal("Northmere", JsonDocument.Parse(prediction.Body).RootElement.GetProperty("club").GetString());
     }
 
     [Fact]
@@ -508,7 +666,9 @@ public sealed class LineupUiTests
         public ConcurrentQueue<ApiCall> Calls { get; } = new();
         public bool FailAll { get; set; }
         public bool FailTeamNews { get; set; }
+        public bool FailPredictions { get; set; }
         public HttpStatusCode? NewsStatusCode { get; set; }
+        public HttpStatusCode? PredictionStatusCode { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -517,7 +677,9 @@ public sealed class LineupUiTests
                 : await request.Content.ReadAsStringAsync(cancellationToken);
             Calls.Enqueue(new ApiCall(request.Method.Method, request.RequestUri!.AbsoluteUri, request.RequestUri.AbsolutePath, body));
 
-            if (FailAll || (FailTeamNews && request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal)))
+            if (FailAll ||
+                (FailTeamNews && request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal)) ||
+                (FailPredictions && request.RequestUri.AbsolutePath.EndsWith("/predict_lineup", StringComparison.Ordinal)))
             {
                 throw new HttpRequestException("The test API is unavailable.");
             }
@@ -535,6 +697,12 @@ public sealed class LineupUiTests
             if (request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal) && NewsStatusCode is not null)
             {
                 return Json(NewsStatusCode.Value, """{"detail":"Free-text team news parsing is not available yet."}""");
+            }
+
+            if (request.RequestUri.AbsolutePath.EndsWith("/predict_lineup", StringComparison.Ordinal) &&
+                PredictionStatusCode is not null)
+            {
+                return Json(PredictionStatusCode.Value, """{"detail":"Selected fixture prediction was rejected."}""");
             }
 
             if (request.RequestUri.AbsolutePath.EndsWith("/predict_lineup", StringComparison.Ordinal) ||

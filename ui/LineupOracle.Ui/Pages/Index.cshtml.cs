@@ -14,18 +14,23 @@ public sealed class IndexModel(
     ILogger<IndexModel> logger) : PageModel
 {
     private string? _sessionId;
+    private string? _favouriteClub;
+    private string? _languageOverride;
 
     public IReadOnlyList<MatchDto> Matches { get; private set; } = [];
     public MatchDto? SelectedMatch { get; private set; }
     public string SelectedMatchId { get; private set; } = "";
     public string SelectedClub { get; private set; } = "";
     public string Mode { get; private set; } = "analyst";
-    public string Language => NormalizeLanguage(CultureInfo.CurrentUICulture.Name);
-    public string? FavouriteClub => Request.Cookies[AppCookies.FavouriteClub];
+    public string Language => NormalizeLanguage(_languageOverride ?? CultureInfo.CurrentUICulture.Name);
+    public string? FavouriteClub => _favouriteClub ?? Request.Cookies[AppCookies.FavouriteClub];
     public LineupDto? Lineup { get; private set; }
     public bool IsUnavailable { get; private set; }
     public string? ApiError { get; private set; }
     public string? NewsMessage { get; private set; }
+    public string? RetryMatchId { get; private set; }
+    public string? RetryClub { get; private set; }
+    public bool IsSelectionFailure { get; private set; }
     public bool IsHtmx => string.Equals(Request.Headers["HX-Request"], "true", StringComparison.OrdinalIgnoreCase);
 
     public async Task OnGetAsync(string? matchId, string? club, string? mode, CancellationToken cancellationToken)
@@ -45,7 +50,10 @@ public sealed class IndexModel(
         string? matchId,
         string? club,
         string? mode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? previousMatchId = null,
+        string? previousClub = null,
+        bool selectionUpdate = false)
     {
         EnsureSessionCookie();
         Mode = NormalizeMode(mode);
@@ -54,6 +62,11 @@ public sealed class IndexModel(
 
         if (SelectedMatch is null)
         {
+            if (IsHtmx && selectionUpdate && IsUnavailable)
+            {
+                return SelectionFailure(previousMatchId, previousClub, matchId, club);
+            }
+
             if (IsHtmx && IsUnavailable)
             {
                 Response.Headers["HX-Retarget"] = "#service-banner";
@@ -75,6 +88,11 @@ public sealed class IndexModel(
         await LoadLineupAsync(cancellationToken);
         if (IsHtmx)
         {
+            if (selectionUpdate && Lineup is null)
+            {
+                return SelectionFailure(previousMatchId, previousClub, SelectedMatchId, SelectedClub);
+            }
+
             if (IsUnavailable)
             {
                 Response.Headers["HX-Retarget"] = "#service-banner";
@@ -89,7 +107,12 @@ public sealed class IndexModel(
                 return Partial("_NewsMessage", this);
             }
 
-            return Partial("_Lineup", this);
+            if (selectionUpdate)
+            {
+                PushSelectionUrl();
+            }
+
+            return Partial("_Workspace", this);
         }
 
         return Page();
@@ -152,14 +175,47 @@ public sealed class IndexModel(
         return Partial("_Lineup", this);
     }
 
-    public IActionResult OnPostLanguage(string language, string? matchId, string? club, string? mode)
+    public async Task<IActionResult> OnPostLanguageAsync(
+        string language,
+        string? matchId,
+        string? club,
+        string? mode,
+        CancellationToken cancellationToken)
     {
         var culture = NormalizeLanguage(language);
         Response.Cookies.Append(
             AppCookies.Language,
             CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(culture)),
             PreferenceCookieOptions());
-        return RedirectToPage("/Index", new { matchId, club, mode = NormalizeMode(mode) });
+
+        if (!IsHtmx)
+        {
+            return RedirectToPage("/Index", new { matchId, club, mode = NormalizeMode(mode) });
+        }
+
+        _languageOverride = culture;
+        EnsureSessionCookie();
+        Mode = NormalizeMode(mode);
+        await LoadMatchesAsync(cancellationToken);
+        SelectFixture(matchId, club);
+
+        if (SelectedMatch is null)
+        {
+            ApiError ??= text["NoFixtures"].Value;
+            Response.Headers["HX-Retarget"] = IsUnavailable ? "#service-banner" : "#news-message";
+            Response.Headers["HX-Reswap"] = IsUnavailable ? "outerHTML" : "innerHTML";
+            return IsUnavailable ? Partial("_Banner", this) : Partial("_NewsMessage", this);
+        }
+
+        await LoadLineupAsync(cancellationToken);
+        if (Lineup is null)
+        {
+            Response.Headers["HX-Retarget"] = IsUnavailable ? "#service-banner" : "#news-message";
+            Response.Headers["HX-Reswap"] = IsUnavailable ? "outerHTML" : "innerHTML";
+            return IsUnavailable ? Partial("_Banner", this) : Partial("_NewsMessage", this);
+        }
+
+        return Partial("_AppShell", this);
     }
 
     public async Task<IActionResult> OnPostFavouriteAsync(
@@ -167,13 +223,17 @@ public sealed class IndexModel(
         string? matchId,
         string? club,
         string? mode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? previousMatchId = null,
+        string? previousClub = null)
     {
         if (string.IsNullOrWhiteSpace(favouriteClub))
         {
             return BadRequest();
         }
 
+        EnsureSessionCookie();
+        Mode = NormalizeMode(mode);
         await LoadMatchesAsync(cancellationToken);
         SelectFixture(matchId, club);
         if (SelectedMatch is null ||
@@ -183,7 +243,24 @@ public sealed class IndexModel(
         }
 
         Response.Cookies.Append(AppCookies.FavouriteClub, favouriteClub, PreferenceCookieOptions());
-        return RedirectToPage("/Index", new { matchId, club = favouriteClub, mode = NormalizeMode(mode) });
+        _favouriteClub = favouriteClub;
+        var lastMatchId = previousMatchId ?? SelectedMatchId;
+        var lastClub = previousClub ?? SelectedClub;
+        SelectFixture(matchId, favouriteClub);
+        await LoadLineupAsync(cancellationToken);
+
+        if (IsHtmx)
+        {
+            if (Lineup is null)
+            {
+                return SelectionFailure(lastMatchId, lastClub, SelectedMatchId, SelectedClub);
+            }
+
+            PushSelectionUrl();
+            return Partial("_Workspace", this);
+        }
+
+        return RedirectToPage("/Index", new { matchId, club = favouriteClub, mode = Mode });
     }
 
     private async Task LoadMatchesAsync(CancellationToken cancellationToken)
@@ -199,6 +276,39 @@ public sealed class IndexModel(
         ApiError = result.IsUnavailable ? text["ServiceUnavailable"].Value : result.Error;
         logger.LogWarning("Could not load matches from the lineup API: {ApiError}", ApiError);
     }
+
+    private IActionResult SelectionFailure(
+        string? previousMatchId,
+        string? previousClub,
+        string? requestedMatchId,
+        string? requestedClub)
+    {
+        RetryMatchId = requestedMatchId;
+        RetryClub = requestedClub;
+        IsSelectionFailure = true;
+
+        if (!string.IsNullOrWhiteSpace(previousMatchId))
+        {
+            SelectFixture(previousMatchId, previousClub);
+        }
+
+        if (IsUnavailable)
+        {
+            Response.Headers["HX-Retarget"] = "#service-banner";
+            Response.Headers["HX-Reswap"] = "outerHTML";
+        }
+        else
+        {
+            Response.Headers["HX-Retarget"] = "#news-message";
+            Response.Headers["HX-Reswap"] = "innerHTML";
+        }
+
+        return Partial("_SelectionError", this);
+    }
+
+    private void PushSelectionUrl() =>
+        Response.Headers["HX-Push-Url"] =
+            $"/?matchId={Uri.EscapeDataString(SelectedMatchId)}&club={Uri.EscapeDataString(SelectedClub)}&mode={Uri.EscapeDataString(Mode)}";
 
     private void SelectFixture(string? matchId, string? club)
     {
