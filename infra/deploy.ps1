@@ -10,6 +10,9 @@ param(
     [string]$Location = 'swedencentral'
 )
 $ErrorActionPreference = 'Stop'
+# `az acr build` streams build logs with non-ASCII characters and crashes on a cp1252 Windows console.
+$env:PYTHONIOENCODING = 'utf-8'
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $root = Split-Path -Parent $PSScriptRoot
 
 function Invoke-Az {
