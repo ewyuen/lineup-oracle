@@ -98,6 +98,8 @@ A thin adapter over the FastAPI service with no logic of its own (`lineup_oracle
 
 The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI service. It loads fixtures from `GET /matches`, predicts with `POST /predict_lineup`, and submits preset or typed team news with `POST /team_news`. Preset injury, suspension and doubt updates are supported; typed news goes to the LLM parser when the model is configured, otherwise the API rejects it with 422. Each browser gets a random `session_id`; the UI sends it, the selected mode and language with prediction and news requests. Mode, language and favourite club are presentation preferences stored in cookies. The UI owns presentation only; it does not score players, choose formations, or keep availability state.
 
+Same-page actions that update the current view use HTMX requests and server-rendered HTML fragments by default. This applies to fixture and club selection, favourite-club and language preferences, team-news submissions, and retry. Successful fixture, club, and favourite changes replace the shared workspace and push the selected match and club into browser history; language changes replace the localized application shell. A failed selection keeps the last successful workspace visible and offers retry for the requested selection. Non-HTMX form submissions retain full-page behavior. True document navigation, such as the brand link, and file downloads remain normal browser requests. Future in-page UI features follow this convention.
+
 ```text
 +--------------------------------------------------------------------------------+
 | LINEUP ORACLE                                                Language: [en v] |

@@ -2,7 +2,8 @@
 @using LineupOracle.Ui
 @using Microsoft.Extensions.Localization
 @inject IStringLocalizer<UiText> T
-<section class="panel fixture-panel">
+<section id="fixture-panel" class="panel fixture-panel"
+         hx-swap-oob="@(Model.IsSelectionFailure ? "outerHTML" : null)">
     <h2>@T["Fixtures"]</h2>
     @if (Model.Matches.Count == 0)
     {
@@ -10,9 +11,13 @@
     }
     else
     {
-        <form method="get" asp-page="/Index" class="fixture-form">
+        <form method="get" asp-page="/Index" asp-page-handler="Lineup" class="fixture-form"
+              hx-get="/?handler=Lineup" hx-target="#workspace" hx-swap="outerHTML" hx-push-url="true">
             <input type="hidden" name="club" value="@Model.SelectedClub" />
             <input type="hidden" name="mode" value="@Model.Mode" />
+            <input type="hidden" name="previousMatchId" value="@Model.SelectedMatchId" />
+            <input type="hidden" name="previousClub" value="@Model.SelectedClub" />
+            <input type="hidden" name="selectionUpdate" value="true" />
             <label for="matchId">@T["ChooseFixture"]</label>
             <select id="matchId" name="matchId">
                 @foreach (var matchday in Model.Matches.GroupBy(match => match.Matchday).OrderBy(group => group.Key))
@@ -41,21 +46,28 @@
                 })
                 {
                     <div class="club-choice">
-                        <form method="get" asp-page="/Index">
+                        <form method="get" asp-page="/Index" asp-page-handler="Lineup"
+                              hx-get="/?handler=Lineup" hx-target="#workspace" hx-swap="outerHTML" hx-push-url="true">
                             <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
                             <input type="hidden" name="club" value="@clubName" />
                             <input type="hidden" name="mode" value="@Model.Mode" />
+                            <input type="hidden" name="previousMatchId" value="@Model.SelectedMatchId" />
+                            <input type="hidden" name="previousClub" value="@Model.SelectedClub" />
+                            <input type="hidden" name="selectionUpdate" value="true" />
                             <button class="club-button @(Model.SelectedClub == clubName ? "active" : "")" type="submit" aria-pressed="@(Model.SelectedClub == clubName)">
                                 <span class="club-dot" style="--club-color: @ClubColor(clubName)"></span>
                                 @clubName <span class="side-label">@T[side]</span>
                             </button>
                         </form>
-                        <form method="post" asp-page-handler="Favourite" class="favourite-form">
+                        <form method="post" asp-page-handler="Favourite" class="favourite-form"
+                              hx-post="/?handler=Favourite" hx-target="#workspace" hx-swap="outerHTML" hx-push-url="true">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="favouriteClub" value="@clubName" />
                             <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
                             <input type="hidden" name="club" value="@Model.SelectedClub" />
                             <input type="hidden" name="mode" value="@Model.Mode" />
+                            <input type="hidden" name="previousMatchId" value="@Model.SelectedMatchId" />
+                            <input type="hidden" name="previousClub" value="@Model.SelectedClub" />
                             <button class="favourite-button" type="submit" aria-label="@T["MarkFavourite"]" title="@T["MarkFavourite"]">
                                 @(Model.FavouriteClub == clubName ? "★" : "☆")
                             </button>

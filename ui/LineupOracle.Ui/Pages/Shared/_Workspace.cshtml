@@ -1,0 +1,15 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<div id="workspace">
+    <div class="content-grid">
+        <aside class="context-rail">
+            @await Html.PartialAsync("_FixturePicker", Model)
+            @await Html.PartialAsync("_TeamNews", Model)
+        </aside>
+        <section class="pitch-column" aria-label="@T["Lineup"]">
+            @await Html.PartialAsync("_Lineup", Model)
+        </section>
+    </div>
+</div>
