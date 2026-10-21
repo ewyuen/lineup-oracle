@@ -50,9 +50,33 @@ public sealed class LineupUiTests
         using var htmxResponse = await client.GetAsync("/js/htmx.min.js");
 
         Assert.Equal(HttpStatusCode.OK, cssResponse.StatusCode);
-        Assert.Contains("--surface:", await cssResponse.Content.ReadAsStringAsync());
+        var css = await cssResponse.Content.ReadAsStringAsync();
+        Assert.Contains("--surface:", css);
+        Assert.Contains(".busy-indicator.htmx-request", css);
+        Assert.Contains("@media (prefers-reduced-motion: reduce)", css);
         Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);
         Assert.Contains("version:\"2.0.8\"", await htmxResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task BusyIndicatorIsAccessibleAndSharedByInPageHtmxInteractions()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Contains("hx-indicator=\"#busy-indicator\"", html);
+        Assert.Contains("id=\"busy-indicator\"", html);
+        Assert.Contains("role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"", html);
+        Assert.Contains("Updating...", html);
+        Assert.Contains("hx-target=\"#workspace\"", html);
+        Assert.Contains("hx-target=\"#lineup\"", html);
+        Assert.Contains("hx-target=\"#app-shell\"", html);
+        Assert.True(html.IndexOf("id=\"busy-indicator\"", StringComparison.Ordinal) <
+                    html.IndexOf("id=\"workspace\"", StringComparison.Ordinal));
+        Assert.Contains("<h1>Harbor City</h1>", html);
     }
 
     [Fact]
@@ -107,6 +131,7 @@ public sealed class LineupUiTests
         Assert.DoesNotContain("data-player-id=\"player-1\"", html);
         Assert.Contains("Ari Crest marked injured; XI updated", html);
         Assert.DoesNotContain("fixture-panel", html);
+        Assert.DoesNotContain("id=\"busy-indicator\"", html);
         Assert.Contains("hx-post=\"/?handler=News\"", html);
         Assert.Contains("name=\"__RequestVerificationToken\"", html);
 
@@ -136,6 +161,7 @@ public sealed class LineupUiTests
         Assert.Contains("hx-post=\"/?handler=News\"", html);
         Assert.Contains("name=\"__RequestVerificationToken\"", html);
         Assert.DoesNotContain("<html", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("id=\"busy-indicator\"", html);
     }
 
     [Fact]
@@ -189,6 +215,7 @@ public sealed class LineupUiTests
         Assert.Contains("match-1", html);
         Assert.Contains("match-2", html);
         Assert.Contains("club=Summit%20Vale", html);
+        Assert.DoesNotContain("id=\"busy-indicator\"", html);
         Assert.DoesNotContain("id=\"workspace\"", html);
 
         handler.FailPredictions = false;
@@ -220,6 +247,7 @@ public sealed class LineupUiTests
 
         Assert.Equal("#news-message", response.Headers.GetValues("HX-Retarget").Single());
         Assert.Contains("Selected fixture prediction was rejected.", html);
+        Assert.DoesNotContain("id=\"busy-indicator\"", html);
         Assert.Contains("hx-swap-oob=\"outerHTML\"", html);
         Assert.Contains("match-1", html);
         Assert.DoesNotContain("id=\"workspace\"", html);
@@ -248,6 +276,7 @@ public sealed class LineupUiTests
 
         Assert.Equal("#news-message", response.Headers.GetValues("HX-Retarget").Single());
         Assert.Contains("Service unavailable", html);
+        Assert.DoesNotContain("id=\"busy-indicator\"", html);
         Assert.Contains("hx-swap-oob=\"outerHTML\"", html);
         Assert.DoesNotContain("id=\"lineup\"", html);
         Assert.DoesNotContain("player-replacement", html);
@@ -272,6 +301,7 @@ public sealed class LineupUiTests
 
         Assert.Contains("id=\"lineup\"", html);
         Assert.Contains("id=\"workspace\"", html);
+        Assert.DoesNotContain("id=\"busy-indicator\"", html);
         Assert.Contains("hx-swap-oob=\"outerHTML\"", html);
         Assert.DoesNotContain("Service unavailable", html);
     }
@@ -294,6 +324,7 @@ public sealed class LineupUiTests
 
         Assert.Equal("#news-message", response.Headers.GetValues("HX-Retarget").Single());
         Assert.Contains("Free-text team news parsing is not available yet", html);
+        Assert.DoesNotContain("id=\"busy-indicator\"", html);
         Assert.DoesNotContain("id=\"lineup\"", html);
     }
 
@@ -402,8 +433,16 @@ public sealed class LineupUiTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("id=\"app-shell\"", html);
+        Assert.Contains("id=\"busy-indicator\"", html);
         Assert.Contains(expectedTier, WebUtility.HtmlDecode(html));
         Assert.Contains(expectedLanguageLabel, WebUtility.HtmlDecode(html));
+        var expectedUpdating = language switch
+        {
+            "es" => "Actualizando...",
+            "zh-Hant" => "正在更新...",
+            _ => "Updating..."
+        };
+        Assert.Contains(expectedUpdating, WebUtility.HtmlDecode(html));
         Assert.Contains("<h1>Harbor City</h1>", html);
         Assert.DoesNotContain("<html", html, StringComparison.OrdinalIgnoreCase);
         var prediction = handler.Calls.Last(call => call.Path.EndsWith("/predict_lineup", StringComparison.Ordinal));

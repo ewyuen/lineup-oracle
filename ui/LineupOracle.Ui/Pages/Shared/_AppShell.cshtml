@@ -7,7 +7,7 @@
     System.Globalization.CultureInfo.CurrentCulture = culture;
     System.Globalization.CultureInfo.CurrentUICulture = culture;
 }
-<main id="app-shell" class="app-shell">
+<main id="app-shell" class="app-shell" hx-indicator="#busy-indicator">
     <header class="topbar">
         <a class="brand" asp-page="/Index">
             <span class="brand-name">@T["AppTitle"]</span>
@@ -31,6 +31,10 @@
         </div>
     </header>
 
+    <div id="busy-indicator" class="busy-indicator htmx-indicator" role="status" aria-live="polite" aria-atomic="true">
+        <span class="busy-spinner" aria-hidden="true"></span>
+        <span>@T["Updating"]</span>
+    </div>
     @await Html.PartialAsync("_Banner", Model)
     @await Html.PartialAsync("_Workspace", Model)
 </main>
