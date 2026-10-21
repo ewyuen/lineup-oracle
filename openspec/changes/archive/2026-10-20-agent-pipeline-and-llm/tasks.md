@@ -35,5 +35,5 @@
 ## 7. Verify and approve
 
 - [x] 7.1 Run the full suite (`cd backend && python -m pytest -q`) and fix any failure; run `python -m lineup_oracle.evals` and record the lineup scores in the PR notes.
-- [ ] 7.2 If the user provides an endpoint and deployment: run `python -m lineup_oracle.llm --check`, the parser eval and one live predict in each of en, es and zh-Hant, and record the results; otherwise say plainly that the live model path is untested.
-- [ ] 7.3 Human approval gate (HITL): stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it. Do not archive or merge before approval.
+- [ ] 7.2 (Not run: `llm --check` and the parser eval were skipped. The live model path was exercised by hand through the UI on 2026-10-20: AI-badged explanations and free-text news parsing worked in Traditional Chinese and English; Spanish untested.) If the user provides an endpoint and deployment: run `python -m lineup_oracle.llm --check`, the parser eval and one live predict in each of en, es and zh-Hant, and record the results; otherwise say plainly that the live model path is untested.
+- [x] 7.3 Human approval gate (HITL): stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it. Do not archive or merge before approval.
