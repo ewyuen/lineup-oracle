@@ -12,6 +12,8 @@ Needs the Azure CLI with Bicep, PowerShell 7 and `az login` to the target subscr
 
 Steps: create the resource group; deploy the infrastructure with a placeholder image (only when the registry does not exist yet); build `lineup-api` and `lineup-ui` in ACR, tagged with the git short SHA; deploy again with the real images; print the UI URL; run `smoke.ps1`. Re-running updates the same resources. The tag is the commit SHA, so commit before redeploying changed code.
 
+Deploy only part, or other code: `-Target Backend|Client|Both` (default `Both`) rebuilds only that image and leaves the other app on the image it runs now; `-Ref <branch|sha>` builds that ref from a temporary worktree (default: the working tree, uncommitted changes included, tagged `<sha>-dirty-<time>`). The `deploy-latest` skill in `.claude/skills/` wraps this for Claude Code and Copilot.
+
 Preview without creating anything:
 
 ```powershell

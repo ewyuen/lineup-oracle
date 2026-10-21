@@ -4,13 +4,20 @@
 .EXAMPLE
   ./infra/deploy.ps1 -ResourceGroup lineup-oracle-rg -Location swedencentral
   Re-running updates the same resources. Teardown: az group delete --name <ResourceGroup>
+.EXAMPLE
+  ./infra/deploy.ps1 -ResourceGroup lineup-oracle-rg -Location swedencentral -Target Backend -Ref main
+  -Target Backend|Client|Both picks what is rebuilt; the other app keeps the image it runs now.
+  -Ref is a branch or commit, built from a temporary worktree. Omit it to build the working tree.
 #>
 param(
     [string]$ResourceGroup = 'lineup-oracle-rg',
-    [string]$Location = 'swedencentral'
+    [string]$Location = 'swedencentral',
+    [ValidateSet('Both', 'Backend', 'Client')][string]$Target = 'Both',
+    [string]$Ref = ''
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$worktree = $null
 
 function Invoke-Az {
     $out = & az @args
@@ -36,7 +43,29 @@ if (-not $registry) {
     $registry = (Deploy-Infra).registryName.value
 }
 
-$tag = (git -C $root rev-parse --short HEAD).Trim()
+if ($Ref) {
+    git -C $root fetch origin --quiet
+    $commit = (git -C $root rev-parse --verify --quiet "origin/$Ref^{commit}") ?? (git -C $root rev-parse --verify --quiet "$Ref^{commit}")
+    if (-not $commit) { throw "Ref '$Ref' not found locally or on origin" }
+    $worktree = Join-Path ([IO.Path]::GetTempPath()) "lineup-deploy-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    git -C $root worktree add --detach $worktree $commit | Out-Null
+    $root = $worktree
+    $tag = (git -C $root rev-parse --short HEAD).Trim()
+} else {
+    $tag = (git -C $root rev-parse --short HEAD).Trim()
+    # Uncommitted changes are built too, so give them a tag that is new every time (same tag = no new revision).
+    if (git -C $root status --porcelain) { $tag += "-dirty-$(Get-Date -Format yyyyMMddHHmmss)" }
+}
+
+# The app that is not rebuilt keeps the tag it runs now.
+function Get-RunningTag($app) {
+    $image = Invoke-Az containerapp show --resource-group $ResourceGroup --name $app --query 'properties.template.containers[0].image' --output tsv
+    if (-not $image -or $image -notmatch ':([^:/]+)$') { throw "Cannot read the running image of $app" }
+    $Matches[1]
+}
+$apiTag = $uiTag = $tag
+if ($Target -eq 'Client') { $apiTag = Get-RunningTag 'lineup-api' }
+if ($Target -eq 'Backend') { $uiTag = Get-RunningTag 'lineup-ui' }
 # Queue without streaming the log (the CLI crashes printing it on a cp1252 Windows console), then poll.
 function Build-Image($image, $context) {
     Invoke-Az acr build --registry $registry --image $image $context --no-logs --output none | Out-Null
@@ -50,11 +79,15 @@ function Build-Image($image, $context) {
     }
     Write-Host "built $image ($run)"
 }
-Build-Image "lineup-api:$tag" "$root/backend"
-Build-Image "lineup-ui:$tag" "$root/ui"
+try {
+    if ($Target -ne 'Client') { Build-Image "lineup-api:$tag" "$root/backend" }
+    if ($Target -ne 'Backend') { Build-Image "lineup-ui:$tag" "$root/ui" }
+} finally {
+    if ($worktree) { git -C $PSScriptRoot worktree remove --force $worktree }
+}
 
 # Pass 2: same template, real images (adds the API health probes).
-$env:API_IMAGE_TAG = $tag; $env:UI_IMAGE_TAG = $tag
+$env:API_IMAGE_TAG = $apiTag; $env:UI_IMAGE_TAG = $uiTag
 $outputs = Deploy-Infra
 $uiUrl = $outputs.uiUrl.value
 Write-Host "UI: $uiUrl"
