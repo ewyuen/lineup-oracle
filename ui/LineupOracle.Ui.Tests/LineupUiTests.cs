@@ -811,6 +811,33 @@ public sealed class LineupUiTests
         Assert.Contains("since=5", handler.Calls.Last(c => c.Path.EndsWith("/news", StringComparison.Ordinal)).Uri);
     }
 
+    [Theory]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("zh-Hant")]
+    public async Task PollFormCarriesTheSelectedLanguageAndNewsIsRequestedInIt(string language)
+    {
+        using var handler = new StubApiHandler { NewsBody = NewsJson(7, false, NewsItem(7, "Pia Ash")) };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        using var switchRequest = HtmxPost("/?handler=Language", Form(ExtractAntiforgeryToken(initial),
+            ("language", language), ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst")));
+        using var switched = await client.SendAsync(switchRequest);
+        var html = await switched.Content.ReadAsStringAsync();
+
+        Assert.Contains($"name=\"language\" value=\"{language}\"", html);
+
+        var (_, _) = await PollNewsAsync(client, $"since=5&matchId=match-1&club=Harbor%20City&language={language}");
+        Assert.Contains($"language={language}", handler.Calls.Last(c => c.Path.EndsWith("/news", StringComparison.Ordinal)).Uri);
+
+        using var restart = HtmxPost("/?handler=RestartFeed", Form(ExtractAntiforgeryToken(html),
+            ("matchId", "match-1"), ("club", "Harbor City")));
+        using var restarted = await client.SendAsync(restart);
+        Assert.Equal(HttpStatusCode.OK, restarted.StatusCode);
+        Assert.Contains($"language={language}", handler.Calls.Last(c => c.Path.EndsWith("/news", StringComparison.Ordinal)).Uri);
+    }
+
     [Fact]
     public async Task FailedRestartShowsAnError()
     {
