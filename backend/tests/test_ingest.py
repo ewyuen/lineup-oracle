@@ -233,3 +233,17 @@ def test_restart_moves_the_producer_schedule(feed, monkeypatch):
     stop.wait = lambda t: (feed.restart() if len(stop.waits) == 0 else None, wait(t))[1]
     feed.run(stop, clock)
     assert ticks[0] == 0 and ticks[1:] == [30, 45]  # restart() stepped at 0; the 15 s tick is skipped, then 15 s from there
+
+
+def test_entries_keep_all_texts_and_poll_projects_one_language(feed, pipe):
+    item = feed.items[0]
+    pipe.override[feed.items[1].payload["text"]] = NewsRejected("no")  # the second item is not applied
+    feed.step()
+    feed.step()
+    assert set(feed._log[0]["texts"]) == {"en", "es", "zh-Hant"} and feed._log[1]["applied"] is False
+    assert feed._log[0]["texts"] == {"en": item.payload["text"], **item.payload["translations"]}
+    for lang, expected in [("en", item.payload["text"]), ("es", item.payload["translations"]["es"]), ("zh-Hant", item.payload["translations"]["zh-Hant"])]:
+        entries = feed.poll(None, language=lang)[0]
+        assert entries[0]["text"] == expected and "texts" not in entries[0]
+    assert feed.poll(None)[0][0]["text"] == item.payload["text"]  # English by default
+    assert len(pipe.calls) == 2  # polling interpreted nothing

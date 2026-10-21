@@ -125,9 +125,9 @@ public sealed class IndexModel(
     }
 
     // Background poll: 204 (no swap) when there is nothing new or the API is down.
-    public async Task<IActionResult> OnGetNewsAsync(long? since, string? matchId, string? club, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetNewsAsync(long? since, string? matchId, string? club, string? language, CancellationToken cancellationToken)
     {
-        var result = await api.GetNewsAsync(since, matchId, club, cancellationToken);
+        var result = await api.GetNewsAsync(since, matchId, club, language is null ? Language : NormalizeLanguage(language), cancellationToken);
         if (!result.IsSuccess)
         {
             return new StatusCodeResult(StatusCodes.Status204NoContent);
@@ -167,7 +167,7 @@ public sealed class IndexModel(
         SelectedClub = club ?? "";
         NewsSeq = restart.Value!.LatestSeq;
         // The marker and the first item are the last two entries; show them now instead of waiting for the next poll.
-        var recent = await api.GetNewsAsync(Math.Max(0, NewsSeq - 2), matchId, club, cancellationToken);
+        var recent = await api.GetNewsAsync(Math.Max(0, NewsSeq - 2), matchId, club, Language, cancellationToken);
         if (recent.IsSuccess)
         {
             NewsEntries = NewsEntry.From(recent.Value!.Items);

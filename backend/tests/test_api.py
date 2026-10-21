@@ -344,3 +344,42 @@ def test_not_applied_item_does_not_change_the_club(feed_client):
     feed.step()
     body = client.get("/news", params={"since": 0, "match_id": match["match_id"], "club": match["home_club"]}).json()
     assert body["items"][0]["applied"] is False and body["changed"] is False
+
+
+def test_news_language_selects_text_and_rejects_unknown(feed_client):
+    client, feed = feed_client
+    item = feed.items[0]
+    feed.step()
+    texts = {"en": item.payload["text"], **item.payload["translations"]}
+    for lang, text in texts.items():
+        body = client.get("/news", params={"language": lang}).json()
+        assert [e["text"] for e in body["items"]] == [text] and body["latest_seq"] == 1
+    assert client.get("/news").json()["items"][0]["text"] == texts["en"]
+    assert client.get("/news", params={"language": "fr"}).status_code == 422
+    restarted = client.post("/news/restart").json()["latest_seq"]
+    assert restarted == 3 and client.get("/news", params={"since": 1, "language": "es"}).json()["items"][0]["text"] == ""
+
+
+def _write_events(tmp_path, mutate):
+    import json
+    from dataclasses import asdict
+
+    events = copy.deepcopy(EVENTS)
+    mutate(next(e for e in events if e.type == "team_news"))
+    (tmp_path / "events.jsonl").write_text("\n".join(json.dumps(asdict(e)) for e in events), encoding="utf-8")
+    return tmp_path
+
+
+def test_state_accepts_current_format_events(tmp_path):
+    State.load(_write_events(tmp_path, lambda e: None))
+
+
+@pytest.mark.parametrize("break_it", [
+    lambda e: e.payload.pop("translations"),
+    lambda e: e.payload["translations"].pop("es"),
+    lambda e: e.payload["translations"].update({"zh-Hant": ""}),
+    lambda e: e.payload.update({"text": ""}),
+])
+def test_state_rejects_stale_team_news(tmp_path, break_it):
+    with pytest.raises(ValueError, match="regenerate"):
+        State.load(_write_events(tmp_path, break_it))

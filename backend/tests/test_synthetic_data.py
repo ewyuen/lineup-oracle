@@ -141,6 +141,24 @@ def test_team_news_mentions_club_and_player() -> None:
         assert event.payload["player_name"] in text
 
 
+def test_team_news_has_complete_deterministic_translations() -> None:
+    from lineup_oracle.events import LOCALIZED_TEAM_NEWS_TEMPLATES, TEAM_NEWS_TEMPLATES
+
+    roster = load_roster(ROSTER_PATH)
+    fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)
+    first = [e for e in generate_match_events(roster, fixtures, seed=42) if e.type == "team_news"]
+    second = [e for e in generate_match_events(roster, fixtures, seed=42) if e.type == "team_news"]
+
+    assert [e.payload for e in first] == [e.payload for e in second]
+    for event in first:
+        assert set(event.payload["translations"]) == {"es", "zh-Hant"}
+        for text in event.payload["translations"].values():
+            assert event.club in text and event.payload["player_name"] in text
+    for lang, by_kind in LOCALIZED_TEAM_NEWS_TEMPLATES.items():  # every kind and template has a counterpart, in the same order
+        assert {k: len(v) for k, v in by_kind.items()} == {k: len(v) for k, v in TEAM_NEWS_TEMPLATES.items()}, lang
+        assert all("{club}" in t and "{player}" in t for ts in by_kind.values() for t in ts)
+
+
 def test_event_schema_fields() -> None:
     roster = load_roster(ROSTER_PATH)
     fixtures = generate_fixtures(sorted(roster.clubs.keys()), matchdays=10)

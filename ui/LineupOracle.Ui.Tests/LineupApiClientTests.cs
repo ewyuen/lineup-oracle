@@ -154,8 +154,9 @@ public sealed class LineupApiClientTests
 
         var result = await api.GetNewsAsync(2, "match-1", "Harbor City");
         await api.GetNewsAsync(null, null, null);
+        await api.GetNewsAsync(2, "match-1", "Harbor City", "zh-Hant");
 
-        Assert.Equal(["/news?since=2&match_id=match-1&club=Harbor%20City", "/news"], uris);
+        Assert.Equal(["/news?since=2&match_id=match-1&club=Harbor%20City", "/news", "/news?since=2&match_id=match-1&club=Harbor%20City&language=zh-Hant"], uris);
         Assert.Equal(4, result.Value!.LatestSeq);
         Assert.True(result.Value.Changed);
         Assert.False(result.Value.Items[0].IsRestart);

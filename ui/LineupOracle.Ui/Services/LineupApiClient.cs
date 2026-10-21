@@ -92,12 +92,13 @@ public sealed class LineupApiClient(HttpClient httpClient, ILogger<LineupApiClie
             Content = JsonContent.Create(request, options: JsonOptions)
         }, cancellationToken);
 
-    public Task<ApiResult<NewsDto>> GetNewsAsync(long? since, string? matchId, string? club, CancellationToken cancellationToken = default)
+    public Task<ApiResult<NewsDto>> GetNewsAsync(long? since, string? matchId, string? club, string? language = null, CancellationToken cancellationToken = default)
     {
         var query = new List<string>();
         if (since is not null) query.Add($"since={since}");
         if (!string.IsNullOrWhiteSpace(matchId)) query.Add($"match_id={Uri.EscapeDataString(matchId)}");
         if (!string.IsNullOrWhiteSpace(club)) query.Add($"club={Uri.EscapeDataString(club)}");
+        if (!string.IsNullOrWhiteSpace(language)) query.Add($"language={Uri.EscapeDataString(language)}");
         var uri = query.Count == 0 ? "news" : "news?" + string.Join('&', query);
         return SendAsync<NewsDto>(new HttpRequestMessage(HttpMethod.Get, uri), cancellationToken);
     }
