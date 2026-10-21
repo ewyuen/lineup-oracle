@@ -14,13 +14,6 @@
             <span class="brand-subtitle">@T["AppSubtitle"]</span>
         </a>
         <div class="preference-controls">
-            <form method="get" asp-page="/Index" class="mode-form">
-                <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
-                <input type="hidden" name="club" value="@Model.SelectedClub" />
-                <span class="control-label">@T["Mode"]</span>
-                <button type="submit" name="mode" value="analyst" class="mode-button @(Model.Mode == "analyst" ? "active" : "")" aria-pressed="@(Model.Mode == "analyst")">@T["Analyst"]</button>
-                <button type="submit" name="mode" value="fan" class="mode-button @(Model.Mode == "fan" ? "active" : "")" aria-pressed="@(Model.Mode == "fan")">@T["Fan"]</button>
-            </form>
             <form method="post" asp-page-handler="Language" class="language-form">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
