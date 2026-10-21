@@ -25,6 +25,7 @@
   <data name="TeamNewsPlaceholder" xml:space="preserve"><value>Escribe una noticia del equipo</value></data>
   <data name="Submit" xml:space="preserve"><value>Enviar</value></data>
   <data name="Retry" xml:space="preserve"><value>Reintentar</value></data>
+  <data name="Updating" xml:space="preserve"><value>Actualizando...</value></data>
   <data name="ServiceUnavailable" xml:space="preserve"><value>Servicio no disponible. Se mantiene la última alineación en pantalla.</value></data>
   <data name="Formation" xml:space="preserve"><value>Formación</value></data>
   <data name="Lineup" xml:space="preserve"><value>Alineación titular</value></data>

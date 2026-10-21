@@ -25,6 +25,7 @@
   <data name="TeamNewsPlaceholder" xml:space="preserve"><value>Enter team news</value></data>
   <data name="Submit" xml:space="preserve"><value>Submit</value></data>
   <data name="Retry" xml:space="preserve"><value>Retry</value></data>
+  <data name="Updating" xml:space="preserve"><value>Updating...</value></data>
   <data name="ServiceUnavailable" xml:space="preserve"><value>Service unavailable. The last lineup remains on screen.</value></data>
   <data name="Formation" xml:space="preserve"><value>Formation</value></data>
   <data name="Lineup" xml:space="preserve"><value>Starting lineup</value></data>

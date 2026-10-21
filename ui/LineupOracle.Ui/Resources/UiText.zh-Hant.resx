@@ -25,6 +25,7 @@
   <data name="TeamNewsPlaceholder" xml:space="preserve"><value>輸入球隊消息</value></data>
   <data name="Submit" xml:space="preserve"><value>提交</value></data>
   <data name="Retry" xml:space="preserve"><value>重試</value></data>
+  <data name="Updating" xml:space="preserve"><value>正在更新...</value></data>
   <data name="ServiceUnavailable" xml:space="preserve"><value>服務暫時無法使用。畫面會保留上一個陣容。</value></data>
   <data name="Formation" xml:space="preserve"><value>陣式</value></data>
   <data name="Lineup" xml:space="preserve"><value>先發陣容</value></data>
