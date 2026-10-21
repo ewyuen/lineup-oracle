@@ -1,17 +1,17 @@
 ## 1. Setup
 
 - [x] 1.1 Create the feature branch `feature/azure-bicep-deployment` from main (it already exists if you are reading this on it). Verify: `git branch --show-current` prints it. (Done on a detached HEAD at the branch tip, because the branch is checked out in another worktree; pushed by refspec, so `git branch --show-current` prints nothing here.)
-- [x] 1.2 Read ARCHITECTURE.md (Azure section) and check `az bicep version` and `docker --version` work. Verify: both print a version.
+- [x] 1.2 Read ARCHITECTURE.md (Azure section) and check `az bicep version` and `docker --version` work. Verify: both print a version. (Review: `docker --version` works; `az` is not installed in this sandbox, so `az bicep version` is **not run**. The standalone `bicep` CLI 0.48.1 is used instead for compile checks.)
 
 ## 2. Container images
 
-- [x] 2.1 Add `backend/Dockerfile` (python 3.12 slim, installs the package, includes `backend/data`, non-root, uvicorn on 0.0.0.0:8000) and `backend/.dockerignore`. Verify: `docker build backend` succeeds and `docker run -p 8000:8000` answers `GET /health` with 200 and the matches endpoint with the fixture list.
-- [x] 2.2 Add `ui/Dockerfile` (multi-stage dotnet sdk 10 to aspnet 10, non-root, port 8080) and `ui/.dockerignore`. Verify: `docker build ui` succeeds; running it with `LineupApi__BaseUrl` pointing at the API container serves the page at `/`.
-- [x] 2.3 Add `infra/smoke.ps1 <ui-url>`, which GETs `/` and fails unless a fixture name is in the HTML. Verify: it passes against the two local containers.
+- [x] 2.1 Add `backend/Dockerfile` (python 3.12 slim, installs the package, includes `backend/data`, non-root, uvicorn on 0.0.0.0:8000) and `backend/.dockerignore`. Verify: `docker build backend` succeeds and `docker run -p 8000:8000` answers `GET /health` with 200 and the matches endpoint with the fixture list. (Verified in the sandbox; the pip TLS proxy needed the proxy CA, supplied through a scratch copy of the build context, so the repo Dockerfile is unchanged.)
+- [x] 2.2 Add `ui/Dockerfile` (multi-stage dotnet sdk 10 to aspnet 10, non-root, port 8080) and `ui/.dockerignore`. Verify: `docker build ui` succeeds; running it with `LineupApi__BaseUrl` pointing at the API container serves the page at `/`. (Verified: 52 fixture matches in the HTML, process runs as uid 1654.)
+- [x] 2.3 Add `infra/smoke.ps1 <ui-url>`, which GETs `/` and fails unless a fixture name is in the HTML. Verify: it passes against the two local containers. (Verified with PowerShell 7.5 against both containers: passes on the UI, exits 1 on a page without a fixture name.)
 
 ## 3. Telemetry (with tests)
 
-- [ ] 3.1 Add `azure-monitor-opentelemetry` to `backend/pyproject.toml`; confirm in the installed Agent Framework version how its built-in tracing is switched on. Verify: the import and the switch name are stated in the commit message.
+- [x] 3.1 Add `azure-monitor-opentelemetry` to `backend/pyproject.toml`; confirm in the installed Agent Framework version how its built-in tracing is switched on. Verify: the import and the switch name are stated in the commit message. (Installed: agent-framework-core 1.22.0. Instrumentation is on by default (`ENABLE_INSTRUMENTATION`); the explicit switch is `agent_framework.observability.enable_instrumentation()` (not exported from the top-level package), with sensitive data left off. Exporters come from the Azure Monitor distro's global providers: `from azure.monitor.opentelemetry import configure_azure_monitor`.)
 - [ ] 3.2 Add `backend/lineup_oracle/telemetry.py` (`setup_telemetry(env)`: no-op unless `APPLICATIONINSIGHTS_CONNECTION_STRING` is set; otherwise `configure_azure_monitor()` plus the Agent Framework switch) and call it from `create_app`. Verify: unit tests with a fake env and a patched `configure_azure_monitor` show it is not called when the variable is unset and called once when set.
 - [ ] 3.3 Add `Azure.Monitor.OpenTelemetry.AspNetCore` to the UI and call `UseAzureMonitor()` in `Program.cs` only when the variable is set. Verify: a `WebApplicationFactory` test starts the app with the variable unset and the page loads; `dotnet test ui` passes.
 - [ ] 3.4 Run `python -m pytest -q` and `dotnet test ui`. Verify: all existing and new tests pass.
