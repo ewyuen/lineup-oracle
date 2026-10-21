@@ -19,9 +19,11 @@ function Invoke-Az {
 }
 
 function Deploy-Infra {
-    Invoke-Az deployment group create --resource-group $ResourceGroup --name lineup `
+    $text = (Invoke-Az deployment group create --resource-group $ResourceGroup --name lineup `
         --template-file "$PSScriptRoot/main.bicep" --parameters "$PSScriptRoot/main.bicepparam" `
-        --query properties.outputs --output json | ConvertFrom-Json
+        --query properties.outputs --output json) -join "`n"
+    # az can print Bicep notices ("Bicep CLI is already installed...") before the JSON.
+    $text.Substring($text.IndexOf('{')) | ConvertFrom-Json
 }
 
 Invoke-Az group create --name $ResourceGroup --location $Location --output none
