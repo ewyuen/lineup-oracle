@@ -74,13 +74,13 @@ Match metadata records the actual starting XI and formation of both clubs, `payl
 
 ### `predict_lineup` (stable)
 
-`POST /predict_lineup` with `{match_id, club, mode, language, session_id}`. `session_id` is optional (default `"default"`, at most 64 characters): team news is kept per session, so visitors using the same deployment do not see each other's news. The UI sends one id per browser. `mode` is `analyst` or `fan` (default analyst); `language` is `en`, `es` or `zh-Hant` (default en); both are validated and echoed, and change nothing until the pipeline and UI changes. The club must play in the match.
-Response: `formation`; `players` (11, each with `id`, `name`, `number`, `position`, `p_start`, `explanation`); `alternatives` (up to 2 per position, same player shape); `llm_used` (false until the LLM explainer exists); `mode`; `language`. The prediction uses only the club's XIs from earlier matchdays plus the availability submitted for that match and club, never the match's own XI. Explanations are English templates for now.
+`POST /predict_lineup` with `{match_id, club, mode, language, session_id}`. `session_id` is optional (default `"default"`, at most 64 characters): team news is kept per session, so visitors using the same deployment do not see each other's news. The UI sends one id per browser. `mode` is `analyst` or `fan` (default analyst); `language` is `en`, `es` or `zh-Hant` (default en); both are validated and echoed. `language` and `mode` shape only the explanation texts (the XI is the same). The club must play in the match.
+Response: `formation`; `players` (11, each with `id`, `name`, `number`, `position`, `p_start`, `explanation`); `alternatives` (up to 2 per position, same player shape); `llm_used` (true when the explanation texts came from the model, one flag per lineup); `mode`; `language`. The prediction uses only the club's XIs from earlier matchdays plus the availability submitted for that match and club, never the match's own XI. Explanations come from the LLM explainer in the requested mode and language; if the model is off, fails or returns something invalid, they are English templates and `llm_used` is false. Fan texts never contain numbers, `%` or "P(start)".
 Errors: `{"detail": message}` with 404 for an unknown match and 422 for a club not in the match, a bad mode or language, or when no formation can be filled.
 
 ### `submit_team_news` (stable)
 
-`POST /team_news` with the predict fields plus `player_id` and `kind` (`injury`, `suspension` or `doubt`). Injury and suspension mark the player out, doubt marks the player doubt, for that match, club and session only; the latest news for a player wins. The response is the updated `LineupOut` (same shape as `predict_lineup`). The structured path is what the UI preset buttons use. A request with `text` and no player and kind is rejected with 422 ("not available yet") until the LLM parser exists in the pipeline change. A player outside the club, an unknown match or a bad kind is rejected with no state change. Availability lives in memory and is lost on restart.
+`POST /team_news` with the predict fields plus `player_id` and `kind` (`injury`, `suspension` or `doubt`). Injury and suspension mark the player out, doubt marks the player doubt, for that match, club and session only; the latest news for a player wins. The response is the updated `LineupOut` (same shape as `predict_lineup`). The structured path is what the UI preset buttons use. A request with `text` and no player and kind goes to the LLM parser, which must name a player of that club and a kind; the answer is validated by code and then follows the structured path. If the model is off, fails, times out or names an unknown player, the request is rejected with 422 and nothing changes. A player outside the club, an unknown match or a bad kind is rejected with no state change. Availability lives in memory and is lost on restart.
 
 ### Read-only operations (stable)
 
@@ -88,11 +88,11 @@ Errors: `{"detail": message}` with 404 for an unknown match and 422 for a club n
 
 ### MCP server (stable)
 
-A thin adapter over the FastAPI service with no logic of its own (`lineup_oracle/mcp_server.py`, stdio transport). Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Each tool is one HTTP call to `LINEUP_API_URL` (default `http://127.0.0.1:8000`), and API errors come back as tool errors carrying the API's message. Any MCP client, such as GitHub Copilot or Claude Desktop, can submit structured team news and read the new XI; free text works once the pipeline change adds the parser. The agent pipeline does not call MCP. It is the first thing cut after Azure polish if time runs short.
+A thin adapter over the FastAPI service with no logic of its own (`lineup_oracle/mcp_server.py`, stdio transport). Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Each tool is one HTTP call to `LINEUP_API_URL` (default `http://127.0.0.1:8000`), and API errors come back as tool errors carrying the API's message. Any MCP client, such as GitHub Copilot or Claude Desktop, can submit structured team news and read the new XI; free text works when the model is configured (otherwise `submit_team_news` returns the API's 422 message). The agent pipeline does not call MCP. It is the first thing cut after Azure polish if time runs short.
 
 ### UI (stable)
 
-The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI service. It loads fixtures from `GET /matches`, predicts with `POST /predict_lineup`, and submits preset or typed team news with `POST /team_news`. Preset injury, suspension and doubt updates are supported; typed news is presented by the UI but the API rejects it with 422 until the LLM parser is implemented. Each browser gets a random `session_id`; the UI sends it, the selected mode and language with prediction and news requests. Mode, language and favourite club are presentation preferences stored in cookies. The UI owns presentation only; it does not score players, choose formations, or keep availability state.
+The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI service. It loads fixtures from `GET /matches`, predicts with `POST /predict_lineup`, and submits preset or typed team news with `POST /team_news`. Preset injury, suspension and doubt updates are supported; typed news goes to the LLM parser when the model is configured, otherwise the API rejects it with 422. Each browser gets a random `session_id`; the UI sends it, the selected mode and language with prediction and news requests. Mode, language and favourite club are presentation preferences stored in cookies. The UI owns presentation only; it does not score players, choose formations, or keep availability state.
 
 ```text
 +--------------------------------------------------------------------------------+
@@ -122,19 +122,21 @@ The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI s
 
 Each player card has text-only name, shirt number, position and explanation, plus preset injury, suspension and doubt buttons. Analyst mode also shows API `p_start` values; fan mode hides them. The last lineup stays visible when an API error occurs. There are no crests, logos, photos, invented metrics, or panels for data the API does not return.
 
-### Pipeline stages (draft)
+### Pipeline stages (stable)
+
+Implemented in `lineup_oracle/pipeline.py` (a deterministic orchestrator) with two Microsoft Agent Framework agents in `agents.py` (News Parser, Explainer). Model settings are environment variables, or entries in a `.env` file found from the working directory upward (real variables win): `LINEUP_LLM_ENDPOINT` and `LINEUP_LLM_DEPLOYMENT` (both needed to turn the model on), optional `LINEUP_LLM_API_KEY` (else `DefaultAzureCredential`) and `LINEUP_LLM_TIMEOUT` (seconds, default 15). The model never picks the XI; code validates every model answer.
 
 | Stage | In | Out |
 |---|---|---|
 | Ingest | replayed events | events grouped by match |
-| Interpret | structured team-news events (built), or free-text news via the LLM parser (pipeline change) | availability per player (or rejection) |
+| Interpret | structured team-news events (built), or free-text news via the LLM parser (built) | availability per player (or rejection) |
 | Pick XI | availability, roster, form | formation + 11 players with `p_start`, and up to 2 alternatives per position |
-| Explain | picked XI | explanation per player |
+| Explain | picked XI facts | explanation per player (one batched model call, template fallback) |
 | Personalize | explanations, mode, language, favourite club | final response |
 
 ## Evaluation
 
-Correct starters out of 11 versus a "same XI as last match" baseline, on held-out synthetic matches. It shows the pipeline works, not real-world accuracy.
+Correct starters out of 11 versus a "same XI as last match" baseline, on held-out synthetic matches (matchday 3 on). It shows the pipeline works, not real-world accuracy. `python -m lineup_oracle.evals` prints the lineup score; with `--parser` and a configured model it also scores the news parser (text and club in, player and kind out). Seed 42: pipeline 7.79 / 11 versus baseline 6.58 / 11 over 48 club-matches.
 
 ## Open decisions
 

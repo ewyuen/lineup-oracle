@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
+import re
+import threading
+from collections import OrderedDict
+from collections.abc import Awaitable
+from typing import Any, TypeVar
+
+from pydantic import BaseModel, ValidationError
+
+from .agents import Explanations, ParsedNews, explainer_agent, parser_agent
+from .llm import DEFAULT_TIMEOUT, LlmSettings, build_client
+from .roster import Club
+
+T = TypeVar("T")
+UNAVAILABLE = "Free-text team news parsing is unavailable right now; send a player id and a kind instead."
+UNREADABLE = "The news could not be read as a player and a kind (injury, suspension or doubt); send a player id and a kind instead."
+MAX_EXPLANATION_CHARS = 200
+CACHE_SIZE = 256
+
+
+class NewsRejected(Exception):
+    """The text was not turned into news; the message is shown to the user and nothing changes."""
+
+
+def _parse_json(model: type[T], text: str) -> T:
+    stripped = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+    return model.model_validate_json(stripped)  # type: ignore[attr-defined]
+
+
+class Pipeline:
+    """Interpret and Explain stages: two model agents behind validation. The XI itself never comes from here."""
+
+    def __init__(self, client=None, timeout: float = DEFAULT_TIMEOUT) -> None:
+        self.timeout = timeout
+        self._parser = parser_agent(client) if client is not None else None
+        self._explainer = explainer_agent(client) if client is not None else None
+        # shortcut: per-process cache of explanations, lost on restart; use a shared cache if the API runs several replicas
+        self._cache: OrderedDict[str, dict[str, str]] = OrderedDict()
+        self._cache_lock = threading.Lock()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._loop_lock = threading.Lock()
+
+    @classmethod
+    def from_env(cls) -> Pipeline:
+        settings = LlmSettings.from_env()
+        return cls(build_client(settings), settings.timeout) if settings else cls()
+
+    @property
+    def enabled(self) -> bool:
+        return self._parser is not None
+
+    def _run(self, work: Awaitable[T]) -> T:
+        """Run a model call on one long-lived event loop thread, with a time limit."""
+        with self._loop_lock:
+            if self._loop is None:
+                self._loop = asyncio.new_event_loop()
+                threading.Thread(target=self._loop.run_forever, name="llm-loop", daemon=True).start()
+        future = asyncio.run_coroutine_threadsafe(work, self._loop)  # type: ignore[arg-type]
+        try:
+            return future.result(self.timeout)
+        except BaseException:
+            future.cancel()
+            raise
+
+    def _ask(self, agent, payload: dict[str, Any], model: type[BaseModel]):
+        async def call():
+            response = await agent.run(json.dumps(payload, ensure_ascii=False), options={"response_format": model})
+            return _parse_json(model, response.text)
+
+        return self._run(call())
+
+    def interpret(self, text: str, club: Club) -> tuple[str, str]:
+        """Free text to (player_id, kind) for this club, or NewsRejected."""
+        if not self.enabled:
+            raise NewsRejected(UNAVAILABLE)
+        roster = [{"id": p.id, "name": p.name, "number": p.number, "position": p.position} for p in club.players]
+        try:
+            parsed = self._ask(self._parser, {"club": club.name, "roster": roster, "text": text}, ParsedNews)
+        except (ValidationError, ValueError):
+            raise NewsRejected(UNREADABLE) from None
+        except Exception:  # model error or timeout
+            raise NewsRejected(UNAVAILABLE) from None
+        if parsed.club and parsed.club.strip().casefold() != club.name.casefold():
+            raise NewsRejected(f"The news is about {parsed.club}, not {club.name}.")
+        if parsed.player_id is None or parsed.kind is None:
+            raise NewsRejected("The news names no player of this club or no kind (injury, suspension or doubt); send a player id and a kind instead.")
+        if parsed.player_id not in {p.id for p in club.players}:
+            raise NewsRejected(f"The news does not name a player of {club.name}.")
+        return parsed.player_id, parsed.kind
+
+    def explain(self, facts: list[dict[str, Any]], mode: str, language: str) -> dict[str, str] | None:
+        """Explanation text per player id, or None (use the templates) if the model is off or its answer is unusable."""
+        if not self.enabled:
+            return None
+        key = hashlib.sha256(json.dumps([facts, mode, language], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        with self._cache_lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                return self._cache[key]
+        try:
+            answer = self._ask(self._explainer, {"mode": mode, "language": language, "players": facts}, Explanations)
+        except Exception:  # model error, timeout or unreadable answer
+            return None
+        texts = {item.id: item.text.strip() for item in answer.explanations}
+        if len(texts) != len(answer.explanations) or set(texts) != {f["id"] for f in facts}:
+            return None
+        for text in texts.values():
+            if not text or len(text) > MAX_EXPLANATION_CHARS or (mode == "fan" and ("%" in text or "p(start)" in text.casefold())):
+                return None
+        with self._cache_lock:
+            self._cache[key] = texts
+            if len(self._cache) > CACHE_SIZE:
+                self._cache.popitem(last=False)
+        return texts
