@@ -61,3 +61,15 @@ def test_parser_eval_sends_only_text_and_club_and_scores_answers():
 def test_parser_eval_is_skipped_without_a_model():
     assert "skipped" in evals.parser_accuracy(state(), Pipeline())
     assert evals.lineup_scores(state())["matches"] == 48
+
+
+def test_scores_ignore_news_applied_by_the_feed():
+    from lineup_oracle.ingest import Feed
+    from test_ingest import FakePipeline
+
+    s = state()
+    before = evals.lineup_scores(s)
+    feed = Feed(s, FakePipeline(s))
+    for _ in range(len(feed.items)):
+        feed.step()
+    assert evals.lineup_scores(s) == before

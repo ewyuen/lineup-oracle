@@ -1,0 +1,24 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<div id="news-bar" class="news-bar" hx-swap-oob="@(Model.RefreshNewsBar ? "outerHTML" : null)">
+    <form id="news-poll" method="get" asp-page="/Index" asp-page-handler="News" class="news-poll"
+          hx-get="/?handler=News" hx-trigger="load, every @(Model.PollSeconds)s" hx-sync="this:drop"
+          hx-target="#news-track" hx-swap="beforeend" hx-indicator="#news-poll-indicator">
+        <input type="hidden" id="news-seq" name="since" value="@(Model.NewsSeq == 0 ? "" : Model.NewsSeq.ToString())" />
+        <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
+        <input type="hidden" name="club" value="@Model.SelectedClub" />
+        <span id="news-poll-indicator" hidden></span>
+    </form>
+    <div id="news-track" class="news-track" role="log" aria-live="polite" aria-label="@T["NewsTicker"]">
+        @await Html.PartialAsync("_NewsItems", Model, new ViewDataDictionary(ViewData) { ["inBar"] = true })
+    </div>
+    <form method="post" asp-page="/Index" asp-page-handler="RestartFeed" class="news-restart"
+          hx-post="/?handler=RestartFeed" hx-target="#news-bar" hx-swap="outerHTML">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
+        <input type="hidden" name="club" value="@Model.SelectedClub" />
+        <button class="button button-secondary" type="submit">@T["RestartFeed"]</button>
+    </form>
+</div>

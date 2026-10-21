@@ -167,7 +167,7 @@ def test_latest_news_wins(client, state):
     _news(client, match, starter, "doubt")
     out = _news(client, match, starter, "injury").json()
     assert starter not in {p["id"] for p in out["players"]}
-    assert state.availability[("default", match["match_id"], match["home_club"])][starter] == "out"
+    assert state.availability[("default", match["match_id"], match["home_club"])][starter] == ("out", 0)
 
 
 def test_doubt_is_explained(client):
@@ -233,3 +233,114 @@ def test_sessions_do_not_see_each_others_news(client):
     default = client.post("/predict_lineup", json=body).json()
     assert starter not in {p["id"] for p in mine["players"]}
     assert starter in {p["id"] for p in theirs["players"]} and theirs == default
+
+
+# --- shared news feed --------------------------------------------------
+
+
+@pytest.fixture
+def feed_client(state):
+    from test_ingest import FakePipeline
+    from lineup_oracle.ingest import Feed
+
+    app = create_app(state, Pipeline())
+    app.state.feed = Feed(state, FakePipeline(state))
+    return TestClient(app), app.state.feed
+
+
+def _feed_match(feed):
+    item = feed.items[0]
+    return {"match_id": item.match_id, "home_club": item.club}
+
+
+def _first_starter(client, match):
+    return _predict(client, match).json()["players"][3]["id"]
+
+
+def test_no_feed_thread_without_lifespan(state):
+    import threading
+
+    TestClient(create_app(state, Pipeline())).get("/health")
+    assert "news-feed" not in {t.name for t in threading.enumerate()}
+
+
+def test_feed_injury_shows_in_every_sessions_prediction(feed_client):
+    client, feed = feed_client
+    match = _feed_match(feed)
+    player_id, kind = feed.pipeline.answers[feed.items[0].payload["text"]]
+    feed.step()
+    for session in ("a", "b"):
+        after = _predict(client, match, session_id=session).json()
+        assert len(after["players"]) == 11
+        if kind != "doubt":
+            assert player_id not in {p["id"] for p in after["players"]}
+
+
+def test_sessions_without_news_share_one_pick(feed_client, monkeypatch):
+    client, feed = feed_client
+    match = _feed_match(feed)
+    picks = []
+    import lineup_oracle.ingest as ingest
+
+    real = ingest.pick
+    monkeypatch.setattr(ingest, "pick", lambda *a: picks.append(a) or real(*a))
+    one = _predict(client, match, session_id="a").json()
+    two = _predict(client, match, session_id="b").json()
+    assert one == two and len(picks) == 1
+
+
+def test_later_event_wins_between_personal_and_feed(feed_client):
+    client, feed = feed_client
+    match = _feed_match(feed)
+    victim = feed.pipeline.answers[feed.items[0].payload["text"]][0]
+    # personal doubt, then the feed says out (or doubt, if that is what the item says): the feed is later
+    _news(client, match, victim, "doubt")
+    key = ("default", match["match_id"], match["home_club"])
+    feed.step()
+    status = feed._shared[(match["match_id"], match["home_club"])][victim][0]
+    from lineup_oracle.ingest import merge
+
+    assert merge(feed.shared_availability(match["match_id"], match["home_club"]), client.app.state.lineup.availability[key])[victim] == status
+    # feed out first, then a personal doubt: the personal one is later
+    feed.restart()
+    _news(client, match, victim, "doubt")
+    merged = merge(feed.shared_availability(match["match_id"], match["home_club"]), client.app.state.lineup.availability[key])
+    assert merged[victim] == "doubt"
+
+
+def test_personal_news_does_not_reach_other_sessions_or_the_feed(feed_client):
+    client, feed = feed_client
+    match = _feed_match(feed)
+    starter = _first_starter(client, match)
+    client.post("/team_news", json={"match_id": match["match_id"], "club": match["home_club"], "player_id": starter, "kind": "injury", "session_id": "me"})
+    other = _predict(client, match, session_id="other").json()
+    assert starter in {p["id"] for p in other["players"]}
+    assert feed.shared_availability(match["match_id"], match["home_club"]) == {}
+
+
+def test_news_poll_and_restart(feed_client):
+    client, feed = feed_client
+    match = _feed_match(feed)
+    first = client.get("/news").json()
+    assert first == {"items": [], "latest_seq": 0, "changed": False}
+    feed.step()
+    mine = client.get("/news", params={"since": 0, "match_id": match["match_id"], "club": match["home_club"]}).json()
+    assert mine["latest_seq"] == 1 and len(mine["items"]) == 1 and mine["changed"] is True
+    other = client.get("/news", params={"since": 0, "match_id": "match-x", "club": "Nobody"}).json()
+    assert len(other["items"]) == 1 and other["changed"] is False
+    assert client.get("/news", params={"since": 1}).json()["items"] == []  # polling processes nothing
+    assert len(feed.pipeline.calls) == 1
+    restarted = client.post("/news/restart").json()
+    assert restarted == {"latest_seq": 3}
+    assert client.get("/news", params={"since": 1, "match_id": "match-x", "club": "Nobody"}).json()["changed"] is True
+
+
+def test_not_applied_item_does_not_change_the_club(feed_client):
+    client, feed = feed_client
+    match = _feed_match(feed)
+    from lineup_oracle.pipeline import NewsRejected
+
+    feed.pipeline.override[feed.items[0].payload["text"]] = NewsRejected("no")
+    feed.step()
+    body = client.get("/news", params={"since": 0, "match_id": match["match_id"], "club": match["home_club"]}).json()
+    assert body["items"][0]["applied"] is False and body["changed"] is False

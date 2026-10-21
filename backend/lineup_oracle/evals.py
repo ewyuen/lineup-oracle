@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from .api import STATUS_OF_KIND
+from .picking import STATUS_OF_KIND
 from .optimizer import pick_xi
 from .pipeline import NewsRejected, Pipeline
 from .scoring import p_start_scores, recent_xis

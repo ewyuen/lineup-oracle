@@ -11,8 +11,10 @@ namespace LineupOracle.Ui.Pages;
 public sealed class IndexModel(
     LineupApiClient api,
     IStringLocalizer<UiText> text,
+    IConfiguration configuration,
     ILogger<IndexModel> logger) : PageModel
 {
+    private const int RecentOnFirstPoll = 3;
     private string? _sessionId;
     private string? _favouriteClub;
     private string? _languageOverride;
@@ -31,6 +33,10 @@ public sealed class IndexModel(
     public string? RetryMatchId { get; private set; }
     public string? RetryClub { get; private set; }
     public bool IsSelectionFailure { get; private set; }
+    public IReadOnlyList<NewsEntry> NewsEntries { get; private set; } = [];
+    public long NewsSeq { get; private set; }
+    public bool RefreshNewsBar { get; private set; }
+    public int PollSeconds => configuration.GetValue("News:PollSeconds", 10);
     public bool IsHtmx => string.Equals(Request.Headers["HX-Request"], "true", StringComparison.OrdinalIgnoreCase);
 
     public async Task OnGetAsync(string? matchId, string? club, string? mode, CancellationToken cancellationToken)
@@ -116,6 +122,62 @@ public sealed class IndexModel(
         }
 
         return Page();
+    }
+
+    // Background poll: 204 (no swap) when there is nothing new or the API is down.
+    public async Task<IActionResult> OnGetNewsAsync(long? since, string? matchId, string? club, CancellationToken cancellationToken)
+    {
+        var result = await api.GetNewsAsync(since, matchId, club, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return new StatusCodeResult(StatusCodes.Status204NoContent);
+        }
+
+        var news = result.Value!;
+        var resynced = since is null || news.LatestSeq < since; // first poll, or the API restarted and numbering began again
+        if (!resynced && news.Items.Count == 0)
+        {
+            return new StatusCodeResult(StatusCodes.Status204NoContent);
+        }
+
+        var items = resynced ? news.Items.TakeLast(RecentOnFirstPoll).ToList() : news.Items;
+        NewsEntries = NewsEntry.From(items);
+        NewsSeq = news.LatestSeq;
+        if (news.Changed || (resynced && since is not null))
+        {
+            Response.Headers["HX-Trigger"] = "lineup-changed";
+        }
+
+        return Partial("_NewsItems", this);
+    }
+
+    public async Task<IActionResult> OnPostRestartFeedAsync(string? matchId, string? club, CancellationToken cancellationToken)
+    {
+        var restart = await api.RestartFeedAsync(cancellationToken);
+        if (!restart.IsSuccess)
+        {
+            IsUnavailable = restart.IsUnavailable;
+            ApiError = restart.IsUnavailable ? text["ServiceUnavailable"].Value : restart.Error;
+            Response.Headers["HX-Retarget"] = "#news-message";
+            Response.Headers["HX-Reswap"] = "innerHTML";
+            return Partial("_NewsMessage", this);
+        }
+
+        SelectedMatchId = matchId ?? "";
+        SelectedClub = club ?? "";
+        NewsSeq = restart.Value!.LatestSeq;
+        // The marker and the first item are the last two entries; show them now instead of waiting for the next poll.
+        var recent = await api.GetNewsAsync(Math.Max(0, NewsSeq - 2), matchId, club, cancellationToken);
+        if (recent.IsSuccess)
+        {
+            NewsEntries = NewsEntry.From(recent.Value!.Items);
+            NewsSeq = recent.Value.LatestSeq;
+        }
+
+        Response.Headers["HX-Retarget"] = "#news-bar";
+        Response.Headers["HX-Reswap"] = "outerHTML";
+        Response.Headers["HX-Trigger"] = "lineup-changed";
+        return Partial("_NewsBar", this);
     }
 
     public async Task<IActionResult> OnPostNewsAsync(
@@ -306,9 +368,12 @@ public sealed class IndexModel(
         return Partial("_SelectionError", this);
     }
 
-    private void PushSelectionUrl() =>
+    private void PushSelectionUrl()
+    {
+        RefreshNewsBar = true; // a new selection starts the ticker's poll afresh, so older news cannot trigger a refresh
         Response.Headers["HX-Push-Url"] =
             $"/?matchId={Uri.EscapeDataString(SelectedMatchId)}&club={Uri.EscapeDataString(SelectedClub)}&mode={Uri.EscapeDataString(Mode)}";
+    }
 
     private void SelectFixture(string? matchId, string? club)
     {

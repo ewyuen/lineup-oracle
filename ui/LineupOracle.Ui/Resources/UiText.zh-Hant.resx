@@ -26,6 +26,10 @@
   <data name="Submit" xml:space="preserve"><value>提交</value></data>
   <data name="Retry" xml:space="preserve"><value>重試</value></data>
   <data name="Updating" xml:space="preserve"><value>正在更新...</value></data>
+  <data name="RestartFeed" xml:space="preserve"><value>重新開始新聞</value></data>
+  <data name="NewsTicker" xml:space="preserve"><value>球隊新聞跑馬燈</value></data>
+  <data name="NewsNotApplied" xml:space="preserve"><value>未套用</value></data>
+  <data name="NewsRestarted" xml:space="preserve"><value>新聞已重新開始</value></data>
   <data name="ServiceUnavailable" xml:space="preserve"><value>服務暫時無法使用。畫面會保留上一個陣容。</value></data>
   <data name="Formation" xml:space="preserve"><value>陣式</value></data>
   <data name="Lineup" xml:space="preserve"><value>先發陣容</value></data>
