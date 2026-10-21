@@ -10,9 +10,6 @@ param(
     [string]$Location = 'swedencentral'
 )
 $ErrorActionPreference = 'Stop'
-# `az acr build` streams build logs with non-ASCII characters and crashes on a cp1252 Windows console.
-$env:PYTHONIOENCODING = 'utf-8'
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $root = Split-Path -Parent $PSScriptRoot
 
 function Invoke-Az {
@@ -40,8 +37,21 @@ if (-not $registry) {
 }
 
 $tag = (git -C $root rev-parse --short HEAD).Trim()
-Invoke-Az acr build --registry $registry --image "lineup-api:$tag" "$root/backend" | Out-Host
-Invoke-Az acr build --registry $registry --image "lineup-ui:$tag" "$root/ui" | Out-Host
+# Queue without streaming the log (the CLI crashes printing it on a cp1252 Windows console), then poll.
+function Build-Image($image, $context) {
+    Invoke-Az acr build --registry $registry --image $image $context --no-logs --output none | Out-Null
+    $run = Invoke-Az acr task list-runs --registry $registry --top 1 --query '[0].runId' --output tsv
+    do {
+        Start-Sleep -Seconds 10
+        $status = Invoke-Az acr task show-run --registry $registry --run-id $run --query status --output tsv
+    } while ($status -in 'Queued', 'Started', 'Running')
+    if ($status -ne 'Succeeded') {
+        throw "Build of $image ended as $status. Log: az acr task logs --registry $registry --run-id $run"
+    }
+    Write-Host "built $image ($run)"
+}
+Build-Image "lineup-api:$tag" "$root/backend"
+Build-Image "lineup-ui:$tag" "$root/ui"
 
 # Pass 2: same template, real images (adds the API health probes).
 $env:API_IMAGE_TAG = $tag; $env:UI_IMAGE_TAG = $tag
