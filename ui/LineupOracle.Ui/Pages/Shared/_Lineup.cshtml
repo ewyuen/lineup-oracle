@@ -1,0 +1,83 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<section id="lineup" class="lineup-panel">
+    @if (Model.Lineup is null)
+    {
+        <div class="empty-lineup">
+            <h2>@T["Lineup"]</h2>
+            <p class="muted">@T["NoLineup"]</p>
+        </div>
+    }
+    else
+    {
+        <header class="lineup-heading">
+            <div>
+                <p class="eyebrow">@T["Lineup"]</p>
+                <h1>@Model.Lineup.Club</h1>
+            </div>
+            <div class="formation-block">
+                <span class="control-label">@T["Formation"]</span>
+                <strong>@Model.Lineup.Formation</strong>
+            </div>
+            @if (Model.Mode == "analyst")
+            {
+                <span class="provenance-badge @(Model.Lineup.LlmUsed ? "badge-ai" : "badge-template")">
+                    @(Model.Lineup.LlmUsed ? T["AI"] : T["Template"])
+                </span>
+            }
+        </header>
+
+        <div class="tiers">
+            @foreach (var (position, titleKey) in new[]
+            {
+                ("FWD", "Forwards"),
+                ("MID", "Midfielders"),
+                ("DEF", "Defenders"),
+                ("GK", "Goalkeeper")
+            })
+            {
+                var tierPlayers = Model.Lineup.Players.Where(player => player.Position == position).ToList();
+                Model.Lineup.Alternatives.TryGetValue(position, out var alternatives);
+                <section class="tier tier-@position.ToLowerInvariant()">
+                    <h2 class="tier-heading">@string.Format(T["TierCount"].Value, T[titleKey].Value, tierPlayers.Count)</h2>
+                    <div class="player-row">
+                        @foreach (var player in tierPlayers)
+                        {
+                            @await Html.PartialAsync("_PlayerCard", new PlayerCardViewModel(player, Model.SelectedMatchId, Model.SelectedClub, Model.Mode))
+                        }
+                    </div>
+                    <div class="alternatives">
+                        <span class="alternatives-label">@T["Alternatives"]</span>
+                        @if (alternatives is not null && alternatives.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var alternative in alternatives)
+                                {
+                                    <li>
+                                        <span class="shirt-number">#@alternative.Number</span> @alternative.Name
+                                        @if (Model.Mode == "analyst")
+                                        {
+                                            <span class="probability @(alternative.PStart < 0.5 ? "probability-low" : "")">
+                                                @T["PStart"] @Math.Round(alternative.PStart * 100)%
+                                            </span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </section>
+            }
+        </div>
+    }
+</section>
+@if (Model.IsHtmx)
+{
+    <div id="service-banner" class="service-banner" hx-swap-oob="outerHTML" role="status" hidden></div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.NewsMessage))
+{
+    <div id="news-message" hx-swap-oob="innerHTML"><p class="success-message">@Model.NewsMessage</p></div>
+}

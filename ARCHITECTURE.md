@@ -15,7 +15,7 @@ flowchart LR
     Pipe <-->|parse / explain| LLM["Foundry gpt-4.1-mini"]
     Pipe --> API["FastAPI service"]
     MCP["MCP server<br/>predict_lineup, submit_team_news, list_matches, get_match_xi"] --> API
-    UI["ASP.NET Razor + HTMX UI"] --> API
+    UI["ASP.NET Razor + HTMX UI<br/>fixture / club / mode / language"] -->|matches, predict_lineup, team_news| API
 ```
 
 All data is synthetic: invented clubs and players, no crests, logos or photos.
@@ -89,6 +89,38 @@ Errors: `{"detail": message}` with 404 for an unknown match and 422 for a club n
 ### MCP server (stable)
 
 A thin adapter over the FastAPI service with no logic of its own (`lineup_oracle/mcp_server.py`, stdio transport). Tools: `predict_lineup`, `submit_team_news` (same contracts as above), `list_matches` and `get_match_xi` (read-only). Each tool is one HTTP call to `LINEUP_API_URL` (default `http://127.0.0.1:8000`), and API errors come back as tool errors carrying the API's message. Any MCP client, such as GitHub Copilot or Claude Desktop, can submit structured team news and read the new XI; free text works when the model is configured (otherwise `submit_team_news` returns the API's 422 message). The agent pipeline does not call MCP. It is the first thing cut after Azure polish if time runs short.
+
+### UI (stable)
+
+The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI service. It loads fixtures from `GET /matches`, predicts with `POST /predict_lineup`, and submits preset or typed team news with `POST /team_news`. Preset injury, suspension and doubt updates are supported; typed news goes to the LLM parser when the model is configured, otherwise the API rejects it with 422. Each browser gets a random `session_id`; the UI sends it, the selected mode and language with prediction and news requests. Mode, language and favourite club are presentation preferences stored in cookies. The UI owns presentation only; it does not score players, choose formations, or keep availability state.
+
+```text
++--------------------------------------------------------------------------------+
+| LINEUP ORACLE                         Mode: [Analyst | Fan]  Language: [en v] |
+| [Service unavailable banner: retry]                                            |
++--------------------------------------+-----------------------------------------+
+| FIXTURES                             | LINEUP                                  |
+| [Matchday / fixture picker]          | Formation: API value    [Template / AI]|
+| [Club toggle: Home | Away] [star]    |                                         |
+|                                      | Forwards                                |
+| TEAM NEWS                            | [Player card] [Player card] ...         |
+| [Free-text news input] [Submit]      | Alternatives: API values                |
+| [message / API error]                |                                         |
+|                                      | Midfielders                             |
+|                                      | [Player cards]                          |
+|                                      | Alternatives: API values                |
+|                                      |                                         |
+|                                      | Defenders                               |
+|                                      | [Player cards]                          |
+|                                      | Alternatives: API values                |
+|                                      |                                         |
+|                                      | Goalkeeper                             |
+|                                      | [Player card]                           |
+|                                      | Alternatives: API values                |
++--------------------------------------+-----------------------------------------+
+```
+
+Each player card has text-only name, shirt number, position and explanation, plus preset injury, suspension and doubt buttons. Analyst mode also shows API `p_start` values; fan mode hides them. The last lineup stays visible when an API error occurs. There are no crests, logos, photos, invented metrics, or panels for data the API does not return.
 
 ### Pipeline stages (stable)
 
