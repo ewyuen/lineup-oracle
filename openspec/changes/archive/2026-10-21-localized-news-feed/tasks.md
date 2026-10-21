@@ -22,4 +22,4 @@
 ## 5. Integration and approval
 
 - [x] 5.1 Run the complete backend suite (`python -m pytest -q` from `backend`) and UI suite (`dotnet test ui` from the repository root); verify both pass.
-- [ ] 5.2 After implementation and tests pass, summarize the results, include one Spanish and one Traditional Chinese item per kind (injury, suspension, doubt) for the approver to read, and stop for human approval; only after approval, archive the OpenSpec change, open a PR from `feature/localized-news-feed` to `main`, and merge it after approval.
+- [x] 5.2 After implementation and tests pass, summarize the results, include one Spanish and one Traditional Chinese item per kind (injury, suspension, doubt) for the approver to read, and stop for human approval; only after approval, archive the OpenSpec change, open a PR from `feature/localized-news-feed` to `main`, and merge it after approval.
