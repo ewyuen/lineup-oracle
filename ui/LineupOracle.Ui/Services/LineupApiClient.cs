@@ -55,6 +55,24 @@ public sealed record TeamNewsRequest(
     [property: JsonPropertyName("kind")] string? Kind = null,
     [property: JsonPropertyName("text")] string? Text = null);
 
+public sealed record NewsItemDto(
+    [property: JsonPropertyName("seq")] long Seq,
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("match_id")] string? MatchId,
+    [property: JsonPropertyName("club")] string? Club,
+    [property: JsonPropertyName("text")] string Text,
+    [property: JsonPropertyName("applied")] bool Applied)
+{
+    public bool IsRestart => Kind == "restart";
+}
+
+public sealed record NewsDto(
+    [property: JsonPropertyName("items")] IReadOnlyList<NewsItemDto> Items,
+    [property: JsonPropertyName("latest_seq")] long LatestSeq,
+    [property: JsonPropertyName("changed")] bool Changed);
+
+public sealed record RestartDto([property: JsonPropertyName("latest_seq")] long LatestSeq);
+
 public sealed class LineupApiClient(HttpClient httpClient, ILogger<LineupApiClient> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -73,6 +91,19 @@ public sealed class LineupApiClient(HttpClient httpClient, ILogger<LineupApiClie
         {
             Content = JsonContent.Create(request, options: JsonOptions)
         }, cancellationToken);
+
+    public Task<ApiResult<NewsDto>> GetNewsAsync(long? since, string? matchId, string? club, CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (since is not null) query.Add($"since={since}");
+        if (!string.IsNullOrWhiteSpace(matchId)) query.Add($"match_id={Uri.EscapeDataString(matchId)}");
+        if (!string.IsNullOrWhiteSpace(club)) query.Add($"club={Uri.EscapeDataString(club)}");
+        var uri = query.Count == 0 ? "news" : "news?" + string.Join('&', query);
+        return SendAsync<NewsDto>(new HttpRequestMessage(HttpMethod.Get, uri), cancellationToken);
+    }
+
+    public Task<ApiResult<RestartDto>> RestartFeedAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<RestartDto>(new HttpRequestMessage(HttpMethod.Post, "news/restart"), cancellationToken);
 
     private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {

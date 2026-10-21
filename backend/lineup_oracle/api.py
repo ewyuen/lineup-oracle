@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import threading
+from contextlib import asynccontextmanager
 from typing import Literal
 
 import fastapi
@@ -10,17 +12,17 @@ from fastapi.responses import JSONResponse
 from pydantic import Field
 from pydantic import BaseModel
 
-from .explain import best_rating, explain
-from .optimizer import POSITIONS, pick_xi
+from .explain import explain
+from .ingest import Feed, merge
+from .optimizer import POSITIONS
+from .picking import STATUS_OF_KIND, pick
 from .pipeline import NewsRejected, Pipeline
-from .scoring import RECENT_MATCHES, p_start_scores, recent_xis
 from .state import State
 from .telemetry import setup_telemetry
 
 Mode = Literal["analyst", "fan"]
 Language = Literal["en", "es", "zh-Hant"]
 Kind = Literal["injury", "suspension", "doubt"]
-STATUS_OF_KIND = {"injury": "out", "suspension": "out", "doubt": "doubt"}
 
 
 class PredictRequest(BaseModel):
@@ -63,29 +65,14 @@ def _match(state: State, match_id: str):
     return state.metadata[match_id].payload
 
 
-def _pick(state: State, req: PredictRequest, availability: dict[str, str]):
-    """The XI and the facts about each listed player; fast, no model call."""
-    meta = _match(state, req.match_id)
-    if req.club not in (meta["home_club"], meta["away_club"]):
-        raise HTTPException(422, f"Club {req.club!r} does not play in match {req.match_id!r}")
-    club = state.roster.clubs[req.club]
-    recent = recent_xis(state.metadata.values(), req.club, meta["matchday"])  # earlier matchdays only
-    last = recent[-RECENT_MATCHES:]
+def _http(fn, *args):
+    """Call fn, turning `pick`'s errors into the HTTP ones."""
     try:
-        scores = p_start_scores(club, recent, availability)
-        xi = pick_xi(club, scores)
+        return fn(*args)
+    except LookupError as err:
+        raise HTTPException(404, str(err)) from err
     except ValueError as err:
         raise HTTPException(422, str(err)) from err
-    listed = list(xi.players) + [ps for pos in POSITIONS for ps in xi.alternatives[pos]]
-    facts = [
-        {
-            "id": p.id, "name": p.name, "position": p.position, "p_start": round(s, 2),
-            "starts": sum(p.id in x for x in last), "played": len(last),
-            "status": availability.get(p.id, "available"), "best_rating": best_rating(p),
-        }
-        for p, s in listed
-    ]
-    return xi, facts
 
 
 def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict]) -> LineupOut:
@@ -113,9 +100,18 @@ def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict]) -> L
 def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> FastAPI:
     setup_telemetry(os.environ)
     # Looked up on the module: the FastAPI instrumentation replaces fastapi.FastAPI when it is switched on.
-    app = fastapi.FastAPI(title="Lineup Oracle")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        # Only a running server ticks the feed; TestClient without a `with` block never enters this.
+        stop = threading.Event()
+        threading.Thread(target=app.state.feed.run, args=(stop,), name="news-feed", daemon=True).start()
+        yield
+        stop.set()
+
+    app = fastapi.FastAPI(title="Lineup Oracle", lifespan=lifespan)
     app.state.lineup = state or State.load()
     app.state.pipeline = pipeline or Pipeline.from_env()
+    app.state.feed = Feed(app.state.lineup, app.state.pipeline)
 
     @app.exception_handler(RequestValidationError)
     def bad_request(_: Request, err: RequestValidationError) -> JSONResponse:
@@ -148,7 +144,12 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
     @app.post("/predict_lineup", response_model=LineupOut)
     def predict_lineup(req: PredictRequest) -> LineupOut:
         s: State = app.state.lineup
-        xi, facts = _pick(s, req, s.availability.get((req.session_id, req.match_id, req.club), {}))
+        feed: Feed = app.state.feed
+        personal = s.availability.get((req.session_id, req.match_id, req.club))
+        if personal is None:  # no news of its own: read the stored XI
+            xi, facts = _http(feed.prediction, req.match_id, req.club)
+        else:
+            xi, facts = _http(pick, s, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), personal))
         return _render(app.state.pipeline, req, xi, facts)
 
     @app.post("/team_news", response_model=LineupOut)
@@ -171,9 +172,19 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
             club = s.roster.clubs.get(req.club)
             if club is None or player_id not in {p.id for p in club.players}:
                 raise HTTPException(422, f"Player {player_id!r} does not belong to club {req.club!r}")
-            updated = {**s.availability.get((req.session_id, req.match_id, req.club), {}), player_id: STATUS_OF_KIND[kind]}
-            xi, facts = _pick(s, req, updated)  # raises before any state changes
+            feed: Feed = app.state.feed
+            updated = {**s.availability.get((req.session_id, req.match_id, req.club), {}), player_id: (STATUS_OF_KIND[kind], feed.latest_seq)}
+            xi, facts = _http(pick, s, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), updated))  # raises before any state changes
             s.availability[(req.session_id, req.match_id, req.club)] = updated
         return _render(app.state.pipeline, req, xi, facts)  # model call, after the lock
+
+    @app.get("/news")
+    def get_news(since: int | None = None, match_id: str | None = None, club: str | None = None) -> dict:
+        items, latest, changed = app.state.feed.poll(since, match_id, club)
+        return {"items": items, "latest_seq": latest, "changed": changed}
+
+    @app.post("/news/restart")
+    def restart_news() -> dict:
+        return {"latest_seq": app.state.feed.restart()}  # one model call, up to the model timeout
 
     return app

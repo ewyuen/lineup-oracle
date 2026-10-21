@@ -665,6 +665,205 @@ public sealed class LineupUiTests
             inner.GetAllStrings(includeParentCultures);
     }
 
+    // --- news ticker ---------------------------------------------------
+
+    private static string NewsJson(long latest, bool changed, params string[] items) =>
+        "{\"items\":[" + string.Join(",", items) + "],\"latest_seq\":" + latest + ",\"changed\":" + (changed ? "true" : "false") + "}";
+
+    private static string NewsItem(long seq, string text, bool applied = true) =>
+        "{\"seq\":" + seq + ",\"kind\":\"news\",\"match_id\":\"match-1\",\"club\":\"Harbor City\",\"text\":\"" + text + "\",\"applied\":" + (applied ? "true" : "false") + "}";
+
+    private static string RestartItem(long seq) =>
+        "{\"seq\":" + seq + ",\"kind\":\"restart\",\"match_id\":null,\"club\":null,\"text\":\"\",\"applied\":true}";
+
+    private static async Task<(HttpResponseMessage Response, string Html)> PollNewsAsync(HttpClient client, string query = "since=1&matchId=match-1&club=Harbor%20City")
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/?handler=News&" + query);
+        request.Headers.Add("HX-Request", "true");
+        var response = await client.SendAsync(request);
+        return (response, await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task NewsBarPollsQuietlyAndSitsAboveTheBusyStatus()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Contains("id=\"news-bar\"", html);
+        Assert.Contains("hx-trigger=\"load, every 10s\"", html);
+        Assert.Contains("hx-sync=\"this:drop\"", html);
+        Assert.Contains("hx-indicator=\"#news-poll-indicator\"", html);
+        Assert.Contains("aria-label=\"Team news ticker\"", html);
+        Assert.Contains("Restart feed", html);
+        Assert.True(html.IndexOf("class=\"topbar\"", StringComparison.Ordinal) < html.IndexOf("id=\"news-bar\"", StringComparison.Ordinal));
+        Assert.True(html.IndexOf("id=\"news-bar\"", StringComparison.Ordinal) < html.IndexOf("id=\"busy-indicator\"", StringComparison.Ordinal));
+        Assert.Contains("name=\"since\" value=\"\"", html);
+    }
+
+    [Fact]
+    public async Task PollWithNothingNewAnswers204AndNeverTriggersARefresh()
+    {
+        using var handler = new StubApiHandler { NewsBody = NewsJson(5, false) };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var (response, html) = await PollNewsAsync(client, "since=5&matchId=match-1&club=Harbor%20City");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal("", html);
+        Assert.False(response.Headers.Contains("HX-Trigger"));
+        Assert.Contains("since=5", handler.Calls.Last(c => c.Path.EndsWith("/news", StringComparison.Ordinal)).Uri);
+    }
+
+    [Fact]
+    public async Task PollAppendsOnlyNewItemsNewestLastAndTriggersOnlyWhenTheClubChanged()
+    {
+        using var handler = new StubApiHandler { NewsBody = NewsJson(3, true, NewsItem(2, "Pia Ash is out."), NewsItem(3, "Lee Rook is doubtful.", applied: false)) };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var (changed, html) = await PollNewsAsync(client);
+
+        Assert.Equal("lineup-changed", changed.Headers.GetValues("HX-Trigger").Single());
+        Assert.Equal(2, Regex.Matches(html, "class=\"news-item").Count);
+        AssertOrdered(html, "Pia Ash is out.", "Lee Rook is doubtful.");
+        Assert.Contains("(not applied)", html);
+        Assert.Contains("id=\"news-seq\" name=\"since\" value=\"3\" hx-swap-oob=\"true\"", html);
+        Assert.DoesNotContain("id=\"news-bar\"", html);
+
+        handler.NewsBody = NewsJson(4, false, NewsItem(4, "Other club news."));
+        var (unchanged, _) = await PollNewsAsync(client, "since=3&matchId=match-1&club=Harbor%20City");
+        Assert.Equal(HttpStatusCode.OK, unchanged.StatusCode);
+        Assert.False(unchanged.Headers.Contains("HX-Trigger"));
+    }
+
+    [Fact]
+    public async Task RestartMarkerAndItsFirstItemAreOneEntry()
+    {
+        using var handler = new StubApiHandler { NewsBody = NewsJson(4, true, RestartItem(3), NewsItem(4, "Pia Ash is out.")) };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var (response, html) = await PollNewsAsync(client, "since=2&matchId=match-9&club=Nobody");
+
+        Assert.Single(Regex.Matches(html, "class=\"news-item"));
+        Assert.Contains("Feed restarted", html);
+        Assert.Contains("Pia Ash is out.", html);
+        Assert.Equal("lineup-changed", response.Headers.GetValues("HX-Trigger").Single());
+    }
+
+    [Fact]
+    public async Task FirstPollShowsOnlyTheLastFewItemsAndDoesNotRefreshTheLineup()
+    {
+        var items = Enumerable.Range(1, 6).Select(i => NewsItem(i, "News number " + i + ".")).ToArray();
+        using var handler = new StubApiHandler { NewsBody = NewsJson(6, false, items) };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var (response, html) = await PollNewsAsync(client, "since=&matchId=match-1&club=Harbor%20City");
+
+        Assert.Equal(3, Regex.Matches(html, "class=\"news-item").Count);
+        Assert.DoesNotContain("News number 3.", html);
+        Assert.Contains("News number 6.", html);
+        Assert.False(response.Headers.Contains("HX-Trigger"));
+        Assert.Contains("value=\"6\"", html);
+    }
+
+    [Fact]
+    public async Task FailedPollKeepsThePreviousTicker()
+    {
+        using var handler = new StubApiHandler { FailNews = true };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var (response, html) = await PollNewsAsync(client);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal("", html);
+    }
+
+    [Fact]
+    public async Task RestartButtonShowsTheBusyStatusAndRendersMarkerFirstItemAndRefresh()
+    {
+        using var handler = new StubApiHandler { NewsBody = NewsJson(7, true, RestartItem(6), NewsItem(7, "Pia Ash is out.")) };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        var form = initial[initial.IndexOf("class=\"news-restart\"", StringComparison.Ordinal)..];
+        Assert.DoesNotContain("hx-indicator", form[..form.IndexOf("</form>", StringComparison.Ordinal)]); // inherits the shared busy status
+        using var request = HtmxPost("/?handler=RestartFeed", Form(ExtractAntiforgeryToken(initial),
+            ("matchId", "match-1"), ("club", "Harbor City")));
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("#news-bar", response.Headers.GetValues("HX-Retarget").Single());
+        Assert.Equal("lineup-changed", response.Headers.GetValues("HX-Trigger").Single());
+        Assert.Contains("id=\"news-bar\"", html);
+        Assert.Single(Regex.Matches(html, "class=\"news-item"));
+        Assert.Contains("Feed restarted", html);
+        Assert.Contains("name=\"since\" value=\"7\"", html);
+        Assert.Contains(handler.Calls, c => c.Method == "POST" && c.Path.EndsWith("/news/restart", StringComparison.Ordinal));
+        Assert.Contains("since=5", handler.Calls.Last(c => c.Path.EndsWith("/news", StringComparison.Ordinal)).Uri);
+    }
+
+    [Fact]
+    public async Task FailedRestartShowsAnError()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        handler.FailNews = true;
+        using var request = HtmxPost("/?handler=RestartFeed", Form(ExtractAntiforgeryToken(initial),
+            ("matchId", "match-1"), ("club", "Harbor City")));
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("#news-message", response.Headers.GetValues("HX-Retarget").Single());
+        Assert.Contains("Service unavailable", html);
+    }
+
+    [Fact]
+    public async Task SelectionAndLanguageResponsesCarryAFreshBarAndTheWorkspaceListens()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        Assert.Contains("hx-trigger=\"lineup-changed from:body\"", initial);
+        Assert.DoesNotContain("hx-push-url", initial[initial.IndexOf("id=\"workspace\"", StringComparison.Ordinal)..][..300]);
+
+        using var selection = new HttpRequestMessage(HttpMethod.Get,
+            "/?handler=Lineup&matchId=match-2&club=Summit%20Vale&mode=analyst&previousMatchId=match-1&previousClub=Harbor%20City&selectionUpdate=true");
+        selection.Headers.Add("HX-Request", "true");
+        using var selected = await client.SendAsync(selection);
+        var selectedHtml = await selected.Content.ReadAsStringAsync();
+        Assert.Contains("id=\"news-bar\" class=\"news-bar\" hx-swap-oob=\"outerHTML\"", selectedHtml);
+        Assert.Contains("name=\"since\" value=\"\"", selectedHtml);
+        Assert.Contains("name=\"club\" value=\"Summit Vale\"", selectedHtml[selectedHtml.IndexOf("id=\"news-poll\"", StringComparison.Ordinal)..]);
+
+        using var refresh = new HttpRequestMessage(HttpMethod.Get, "/?handler=Lineup&matchId=match-1&club=Harbor%20City&mode=analyst");
+        refresh.Headers.Add("HX-Request", "true");
+        using var refreshed = await client.SendAsync(refresh);
+        var refreshedHtml = await refreshed.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("id=\"news-bar\"", refreshedHtml); // a lineup refresh must not reset the ticker
+        Assert.False(refreshed.Headers.Contains("HX-Push-Url"));
+
+        using var language = HtmxPost("/?handler=Language", Form(ExtractAntiforgeryToken(initial),
+            ("language", "es"), ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst")));
+        using var switched = await client.SendAsync(language);
+        var switchedHtml = await switched.Content.ReadAsStringAsync();
+        Assert.Contains("id=\"news-bar\"", switchedHtml);
+        Assert.Contains("name=\"since\" value=\"\"", switchedHtml);
+        Assert.Contains("Reiniciar noticias", switchedHtml);
+    }
+
     private sealed class UiFactory(StubApiHandler handler, string apiBaseUrl = "http://lineup.stub/") : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -706,6 +905,8 @@ public sealed class LineupUiTests
         public bool FailAll { get; set; }
         public bool FailTeamNews { get; set; }
         public bool FailPredictions { get; set; }
+        public bool FailNews { get; set; }
+        public string NewsBody { get; set; } = """{"items":[],"latest_seq":0,"changed":false}""";
         public HttpStatusCode? NewsStatusCode { get; set; }
         public HttpStatusCode? PredictionStatusCode { get; set; }
 
@@ -718,7 +919,9 @@ public sealed class LineupUiTests
 
             if (FailAll ||
                 (FailTeamNews && request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal)) ||
-                (FailPredictions && request.RequestUri.AbsolutePath.EndsWith("/predict_lineup", StringComparison.Ordinal)))
+                (FailPredictions && request.RequestUri.AbsolutePath.EndsWith("/predict_lineup", StringComparison.Ordinal)) ||
+                (FailNews && request.RequestUri.AbsolutePath.Contains("/news", StringComparison.Ordinal) &&
+                 !request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal)))
             {
                 throw new HttpRequestException("The test API is unavailable.");
             }
@@ -758,6 +961,16 @@ public sealed class LineupUiTests
                     root.GetProperty("mode").GetString()!,
                     root.GetProperty("language").GetString()!,
                     playerId));
+            }
+
+            if (request.RequestUri.AbsolutePath.EndsWith("/news/restart", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"latest_seq":7}""");
+            }
+
+            if (request.RequestUri.AbsolutePath.EndsWith("/news", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, NewsBody);
             }
 
             return Json(HttpStatusCode.NotFound, """{"detail":"Unknown endpoint"}""");

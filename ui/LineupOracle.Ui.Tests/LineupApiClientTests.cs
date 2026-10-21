@@ -135,6 +135,65 @@ public sealed class LineupApiClientTests
         Assert.Null(result.Value);
     }
 
+    private const string NewsJson = """
+        {"items":[{"seq":3,"kind":"news","match_id":"match-1","club":"Harbor City","text":"Pia Ash is out.","applied":true},
+                  {"seq":4,"kind":"restart","match_id":null,"club":null,"text":"","applied":true}],
+         "latest_seq":4,"changed":true}
+        """;
+
+    [Fact]
+    public async Task NewsIsRequestedWithAndWithoutSince()
+    {
+        var uris = new List<string>();
+        using var client = CreateClient(request =>
+        {
+            uris.Add(request.RequestUri!.PathAndQuery);
+            return Json(HttpStatusCode.OK, NewsJson);
+        });
+        var api = new LineupApiClient(client, NullLogger<LineupApiClient>.Instance);
+
+        var result = await api.GetNewsAsync(2, "match-1", "Harbor City");
+        await api.GetNewsAsync(null, null, null);
+
+        Assert.Equal(["/news?since=2&match_id=match-1&club=Harbor%20City", "/news"], uris);
+        Assert.Equal(4, result.Value!.LatestSeq);
+        Assert.True(result.Value.Changed);
+        Assert.False(result.Value.Items[0].IsRestart);
+        Assert.True(result.Value.Items[1].IsRestart);
+    }
+
+    [Fact]
+    public async Task NewsAndRestartReportApiFailures()
+    {
+        using var down = CreateClient(_ => throw new HttpRequestException("refused"));
+        using var broken = CreateClient(_ => Json(HttpStatusCode.InternalServerError, "oops"));
+        var offline = new LineupApiClient(down, NullLogger<LineupApiClient>.Instance);
+        var failing = new LineupApiClient(broken, NullLogger<LineupApiClient>.Instance);
+
+        Assert.True((await offline.GetNewsAsync(1, null, null)).IsUnavailable);
+        Assert.True((await offline.RestartFeedAsync()).IsUnavailable);
+        Assert.False((await failing.GetNewsAsync(1, null, null)).IsSuccess);
+        Assert.False((await failing.RestartFeedAsync()).IsSuccess);
+    }
+
+    [Fact]
+    public async Task RestartPostsAndReadsTheLatestSequence()
+    {
+        HttpRequestMessage? sent = null;
+        using var client = CreateClient(request =>
+        {
+            sent = request;
+            return Json(HttpStatusCode.OK, """{"latest_seq":7}""");
+        });
+        var api = new LineupApiClient(client, NullLogger<LineupApiClient>.Instance);
+
+        var result = await api.RestartFeedAsync();
+
+        Assert.Equal(HttpMethod.Post, sent!.Method);
+        Assert.Equal("/news/restart", sent.RequestUri!.AbsolutePath);
+        Assert.Equal(7, result.Value!.LatestSeq);
+    }
+
     private static PredictionRequest Request() =>
         new("match-1", "Harbor City", "analyst", "es", "session-abc");
 

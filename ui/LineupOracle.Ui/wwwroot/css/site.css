@@ -117,6 +117,22 @@ h3 { font-size: 1rem; }
 .empty-lineup { min-height: 12rem; display: grid; align-content: center; text-align: center; }
 .htmx-swapping { opacity: 0.4; transition: opacity 150ms ease-out; }
 
+/* News ticker: each item is its own element with its own slide, so a new item never restarts the others. */
+.news-bar { display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-sm); }
+.news-poll { display: contents; }
+.news-track { container-type: inline-size; position: relative; flex: 1 1 auto; height: 2rem; overflow: hidden; background: var(--surface-low); border: 1px solid var(--pitch-border); border-radius: 0.5rem; }
+.news-item { position: absolute; top: 0; left: 0; display: flex; align-items: center; gap: var(--space-sm); height: 100%; max-width: 40rem; padding: 0 var(--space-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.875rem; transform: translateX(100cqw); animation: news-slide 16s linear var(--news-delay, 0s) forwards; }
+.news-item-skipped { color: var(--text-muted); }
+.news-marker { color: var(--emerald-bright); }
+.news-skipped-mark { color: var(--warning); font-style: normal; }
+.news-restart { flex: 0 0 auto; }
+@keyframes news-slide { from { transform: translateX(100cqw); } to { transform: translateX(-100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .news-track { height: auto; max-height: 6rem; overflow-y: auto; }
+    .news-item { position: static; display: block; transform: none; animation: none; height: auto; max-width: none; padding: var(--space-xs) var(--space-md); white-space: normal; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .busy-indicator.htmx-request { animation: none; }
     .busy-spinner { animation: none; border-right-color: var(--emerald-bright); }

@@ -1,0 +1,24 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+@* Appended to #news-track by the poll; the hidden sequence number is replaced out of band. *@
+@for (var i = 0; i < Model.NewsEntries.Count; i++)
+{
+    var entry = Model.NewsEntries[i];
+    <span class="news-item @(entry.Applied ? "" : "news-item-skipped")" data-seq="@entry.Seq" style="--news-delay: @(i * 6)s">
+        @if (entry.Restarted)
+        {
+            <strong class="news-marker">@T["NewsRestarted"]</strong>
+        }
+        @entry.Text
+        @if (!entry.Applied)
+        {
+            <em class="news-skipped-mark">(@T["NewsNotApplied"])</em>
+        }
+    </span>
+}
+@if (Model.NewsSeq > 0 && ViewData["inBar"] is null)
+{
+    <input type="hidden" id="news-seq" name="since" value="@Model.NewsSeq" hx-swap-oob="true" />
+}

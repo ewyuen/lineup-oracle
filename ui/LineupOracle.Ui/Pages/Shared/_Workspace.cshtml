@@ -2,7 +2,8 @@
 @using LineupOracle.Ui
 @using Microsoft.Extensions.Localization
 @inject IStringLocalizer<UiText> T
-<div id="workspace">
+<div id="workspace" hx-get="/?handler=Lineup&amp;matchId=@Uri.EscapeDataString(Model.SelectedMatchId)&amp;club=@Uri.EscapeDataString(Model.SelectedClub)&amp;mode=@Model.Mode"
+     hx-trigger="lineup-changed from:body" hx-swap="outerHTML">
     <div class="content-grid">
         <aside class="context-rail">
             @await Html.PartialAsync("_FixturePicker", Model)
@@ -13,3 +14,7 @@
         </section>
     </div>
 </div>
+@if (Model.RefreshNewsBar)
+{
+    @await Html.PartialAsync("_NewsBar", Model)
+}

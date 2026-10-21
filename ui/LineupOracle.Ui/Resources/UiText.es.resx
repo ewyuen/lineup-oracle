@@ -26,6 +26,10 @@
   <data name="Submit" xml:space="preserve"><value>Enviar</value></data>
   <data name="Retry" xml:space="preserve"><value>Reintentar</value></data>
   <data name="Updating" xml:space="preserve"><value>Actualizando...</value></data>
+  <data name="RestartFeed" xml:space="preserve"><value>Reiniciar noticias</value></data>
+  <data name="NewsTicker" xml:space="preserve"><value>Noticias de equipos en directo</value></data>
+  <data name="NewsNotApplied" xml:space="preserve"><value>no aplicada</value></data>
+  <data name="NewsRestarted" xml:space="preserve"><value>Noticias reiniciadas</value></data>
   <data name="ServiceUnavailable" xml:space="preserve"><value>Servicio no disponible. Se mantiene la última alineación en pantalla.</value></data>
   <data name="Formation" xml:space="preserve"><value>Formación</value></data>
   <data name="Lineup" xml:space="preserve"><value>Alineación titular</value></data>
