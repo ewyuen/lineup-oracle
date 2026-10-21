@@ -26,7 +26,7 @@
 
 ## 5. Docs
 
-- [ ] 5.1 Update ARCHITECTURE.md (Azure section: built, ingress, identity, no secrets needed, MCP is stdio and not hosted, OpenTelemetry wiring) and the README status row and deploy and teardown steps, and add `infra/README.md` (parameters, the no-quota option, the 403 retry note). Verify: every documented command was run as written or is marked "not run".
+- [x] 5.1 Update ARCHITECTURE.md (Azure section: built, ingress, identity, no secrets needed, MCP is stdio and not hosted, OpenTelemetry wiring) and the README status row and deploy and teardown steps, and add `infra/README.md` (parameters, the no-quota option, the 403 retry note). Verify: every documented command was run as written or is marked "not run". (**Not run**, and said so in the docs where relevant: `deploy.ps1`, `az deployment group what-if` and `az group delete` need a subscription. Run: `smoke.ps1`, `bicep build`, `bicep build-params`, the pytest and dotnet commands.)
 
 ## 6. Full run and approval
 

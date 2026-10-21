@@ -34,7 +34,7 @@ The clubs, players, matches and team news are invented and generated from a seed
 | FastAPI service and MCP server | Built |
 | Agent pipeline and LLM explanations | Built |
 | Razor Pages and HTMX UI | Planned |
-| Azure deployment (Bicep) | Planned |
+| Azure deployment (Bicep) | Built, not yet deployed to a real subscription |
 
 ## Try it
 
@@ -46,7 +46,17 @@ python -m pytest -q
 python -m lineup_oracle.events --seed 42 --out data/events.jsonl
 ```
 
-Run the API with `uvicorn lineup_oracle.api:create_app --factory`. More in [backend/README.md](backend/README.md). Run steps for the whole system will be added once the API, UI and deployment are built.
+Run the API with `uvicorn lineup_oracle.api:create_app --factory`. More in [backend/README.md](backend/README.md). 
+
+## Deploy to Azure
+
+Needs the Azure CLI (with Bicep), PowerShell 7 and a signed-in subscription (`az login`). From the repo root:
+
+```powershell
+./infra/deploy.ps1 -ResourceGroup lineup-oracle-rg -Location swedencentral
+```
+
+It creates the resource group and infrastructure, builds both images in the registry, updates the apps and prints the public UI URL. Re-running updates the same resources. Teardown: `az group delete --name lineup-oracle-rg`. Parameters, the no-quota option and troubleshooting are in [infra/README.md](infra/README.md).
 
 ## More
 
