@@ -37,19 +37,23 @@ flowchart LR
 - **LLM:** only parses free-text team news and writes explanations. If it fails, the XI is still returned, with a template explanation.
 - **Team news has two input paths.** Structured events (UI preset buttons) skip the LLM and go straight to availability. Free-text news (generated, or typed in the UI) goes through the LLM parser, which outputs the same structured availability. If the parse fails or names an unknown player, the news is rejected with a message and the XI is unchanged.
 
-## Azure deployment (planned)
+## Azure deployment (built, not yet deployed live)
 
 ```mermaid
 flowchart LR
-    U[User] --> UIc["Container App: UI"]
-    UIc --> APIc["Container App: API + MCP"]
+    U[User] --> UIc["Container App: UI<br/>public HTTPS"]
+    UIc --> APIc["Container App: API<br/>internal ingress"]
     APIc --> F["Foundry<br/>gpt-4.1-mini"]
     UIc & APIc --> AI[App Insights]
 ```
 
-Telemetry uses OpenTelemetry only: the API and UI use the standard instrumentation, the pipeline uses the Agent Framework's built-in traces, and everything exports to App Insights through the Azure Monitor OpenTelemetry distro. No custom telemetry or dashboards. The traces show per-stage timing and LLM failures with the template fallback serving the XI.
+Defined in `infra/` (`main.bicep`, `containerApp.bicep`, `main.bicepparam`) and deployed by `infra/deploy.ps1`; images are built in Azure Container Registry from `backend/Dockerfile` and `ui/Dockerfile`. CI (`.github/workflows/ci.yml`) runs `pytest`, `dotnet test` and a Bicep compile; there is no deploy job.
 
-Bicep, secrets in Container Apps secrets, managed identity where possible. Model deployment name comes from an environment variable.
+- **Ingress:** only the UI is public (HTTPS). The API has internal ingress, reachable inside the Container Apps environment only; the UI reaches it through `LineupApi__BaseUrl`. Both run one replica, because team news and anti-forgery keys are in memory.
+- **Identity and secrets:** one user-assigned managed identity, shared by both apps, holds `AcrPull` on the registry and `Cognitive Services OpenAI User` on the Foundry account. The API reaches the model with `DefaultAzureCredential` (`AZURE_CLIENT_ID` selects the identity), so there is no model key and `LINEUP_LLM_API_KEY` is never set. Nothing needs storing as a Container Apps secret. The Foundry account has local (key) auth disabled.
+- **Model settings:** `LINEUP_LLM_ENDPOINT` and `LINEUP_LLM_DEPLOYMENT` come from the Bicep outputs. Without Foundry quota, `existingLlmEndpoint` and `existingLlmDeployment` point at a model you already have. If the model is missing or fails, the API still serves XIs with template explanations.
+- **MCP:** the MCP adapter is a stdio process and is not hosted. Run it locally with `LINEUP_API_URL` pointing at an API.
+- **Telemetry:** OpenTelemetry only, exported through the Azure Monitor distro (`azure-monitor-opentelemetry` in the API, `Azure.Monitor.OpenTelemetry.AspNetCore` in the UI), switched on only when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set (the deployment sets it). The API also calls `agent_framework.observability.enable_instrumentation()`, so the pipeline's built-in traces are exported; prompts and replies are not captured. The distros instrument FastAPI, httpx and ASP.NET Core, which links the UI request to the API request. The traces show per-stage timing and LLM failures with the template fallback serving the XI. No custom telemetry or dashboards.
 
 ## Contracts
 

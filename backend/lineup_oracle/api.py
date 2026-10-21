@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import Literal
 
+import fastapi
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -13,6 +15,7 @@ from .optimizer import POSITIONS, pick_xi
 from .pipeline import NewsRejected, Pipeline
 from .scoring import RECENT_MATCHES, p_start_scores, recent_xis
 from .state import State
+from .telemetry import setup_telemetry
 
 Mode = Literal["analyst", "fan"]
 Language = Literal["en", "es", "zh-Hant"]
@@ -108,7 +111,9 @@ def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict]) -> L
 
 
 def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> FastAPI:
-    app = FastAPI(title="Lineup Oracle")
+    setup_telemetry(os.environ)
+    # Looked up on the module: the FastAPI instrumentation replaces fastapi.FastAPI when it is switched on.
+    app = fastapi.FastAPI(title="Lineup Oracle")
     app.state.lineup = state or State.load()
     app.state.pipeline = pipeline or Pipeline.from_env()
 
