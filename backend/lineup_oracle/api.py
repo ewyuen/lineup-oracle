@@ -13,11 +13,13 @@ from opentelemetry import trace
 from pydantic import Field
 from pydantic import BaseModel
 
+from .checks import failed_rules
 from .explain import explain
 from .ingest import Feed, merge
 from .optimizer import POSITIONS
 from .picking import STATUS_OF_KIND, pick
 from .pipeline import NewsRejected, Pipeline
+from .roster import Club
 from .state import State
 from .telemetry import setup_telemetry
 
@@ -78,10 +80,16 @@ def _http(fn, *args):
         raise HTTPException(422, str(err)) from err
 
 
-def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict]) -> LineupOut:
+def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], club: Club) -> LineupOut:
     """Explanations from the model (slow), or the templates if it is off or fails."""
     texts = pipeline.explain(facts, req.mode, req.language)
-    trace.get_current_span().set_attributes({"formation": xi.formation, "llm_used": texts is not None, "mode": req.mode, "language": req.language})
+    span_attributes = {"formation": xi.formation, "llm_used": texts is not None, "mode": req.mode, "language": req.language}
+    if texts:  # observe only: the response is the same whatever the check finds
+        names = [p.name for p in club.players]
+        failed = [failed_rules(texts[f["id"]], f, req.mode, names) for f in facts]
+        span_attributes["explanation.grounded_ratio"] = sum(not rules for rules in failed) / len(failed)
+        span_attributes["explanation.failed_rules"] = sorted({rule for rules in failed for rule in rules})
+    trace.get_current_span().set_attributes(span_attributes)
     by_id = {f["id"]: f for f in facts}
 
     def out(player, p_start):
@@ -157,7 +165,7 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
                 xi, facts = _http(feed.prediction, req.match_id, req.club)
             else:
                 xi, facts = _http(pick, s, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), personal))
-            return _render(app.state.pipeline, req, xi, facts)
+            return _render(app.state.pipeline, req, xi, facts, s.roster.clubs[req.club])
 
     @app.post("/team_news", response_model=LineupOut)
     def team_news(req: TeamNewsRequest) -> LineupOut:
@@ -189,7 +197,7 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
                 updated = {**s.availability.get((req.session_id, req.match_id, req.club), {}), player_id: (STATUS_OF_KIND[kind], feed.latest_seq)}
                 xi, facts = _http(pick, s, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), updated))  # raises before any state changes
                 s.availability[(req.session_id, req.match_id, req.club)] = updated
-            return _render(app.state.pipeline, req, xi, facts)  # model call, after the lock
+            return _render(app.state.pipeline, req, xi, facts, s.roster.clubs[req.club])  # model call, after the lock
 
     @app.get("/news")
     def get_news(since: int | None = None, match_id: str | None = None, club: str | None = None, language: Language = "en") -> dict:

@@ -73,3 +73,45 @@ def test_scores_ignore_news_applied_by_the_feed():
     for _ in range(len(feed.items)):
         feed.step()
     assert evals.lineup_scores(s) == before
+
+
+def _grounded_text(p: dict) -> str:
+    return f"Started {p['starts']} of the last {p['played']}." + (" A doubt." if p["status"] == "doubt" else "")
+
+
+def test_template_explanations_are_all_grounded():
+    for mode in ("analyst", "fan"):
+        result = evals.template_grounding(state(), mode)
+        assert result["grounded"] == 1.0 and result["explanations"] > 0 and not result["failures"]
+
+
+def test_model_grounding_lists_the_ungrounded_explanation():
+    def handler(payload):
+        texts = [_grounded_text(p) for p in payload["players"]]
+        texts[0] = "Started 9 of the last 9."  # one deliberate wrong count per club-match
+        return {"explanations": [{"id": p["id"], "text": t} for p, t in zip(payload["players"], texts)]}
+
+    client = FakeClient(handler)
+    result = evals.model_grounding(state(), Pipeline(client), "analyst", "en")
+    assert len(client.calls) == 48 and result["fallbacks"] == 0
+    assert len(result["failures"]) == 48 and result["grounded"] < 1
+    name, text, failed = result["failures"][0]
+    assert text == "Started 9 of the last 9." and failed == ["numbers"] and name
+    assert all(call["language"] == "en" and call["mode"] == "analyst" for call in client.calls)
+
+
+def test_model_grounding_all_grounded_and_counts_fallbacks():
+    good = FakeClient(lambda payload: {"explanations": [{"id": p["id"], "text": _grounded_text(p)} for p in payload["players"]]})
+    assert evals.model_grounding(state(), Pipeline(good), "analyst", "en")["grounded"] == 1.0
+    down = evals.model_grounding(state(), Pipeline(FakeClient(lambda payload: RuntimeError("down"))), "analyst", "en")
+    assert down["fallbacks"] == 48 and down["explanations"] == 0 and not down["failures"]
+
+
+def test_model_grounding_skipped_without_a_model_and_the_command_still_scores(monkeypatch, capsys):
+    assert "skipped" in evals.model_grounding(state(), Pipeline(), "analyst", "en")
+    monkeypatch.setattr(evals.State, "load", staticmethod(state))
+    monkeypatch.setattr(evals.Pipeline, "from_env", classmethod(lambda cls: Pipeline()))
+    monkeypatch.setattr("sys.argv", ["evals", "--explanations"])
+    evals.main()
+    out = capsys.readouterr().out
+    assert "Lineup: pipeline" in out and "Template explanations (analyst): 100%" in out and "Model explanations: skipped" in out

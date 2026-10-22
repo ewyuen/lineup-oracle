@@ -53,6 +53,7 @@ def spans(monkeypatch) -> InMemorySpanExporter:
     provider = TracerProvider()  # private: the global provider can be set only once per process
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     monkeypatch.setattr("lineup_oracle.api.tracer", provider.get_tracer("test"))
+    monkeypatch.setattr("lineup_oracle.ingest.tracer", provider.get_tracer("test"))
     return exporter
 
 
@@ -156,3 +157,108 @@ def test_spans_carry_no_text_or_session_id(spans):
     for span in spans.get_finished_spans():
         for value in span.attributes.values():
             assert "SECRET-EXPLANATION" not in str(value) and "sess-secret" not in str(value)
+
+
+def _facts_text(p: dict) -> str:
+    return f"Started {p['starts']} of the last {p['played']}." + (" A doubt." if p["status"] == "doubt" else "")
+
+
+def _explanations(wrong_first: bool):
+    def handler(payload):
+        texts = [_facts_text(p) for p in payload["players"]]
+        if wrong_first:
+            texts[0] = "Started 9 of the last 9."
+        return {"explanations": [{"id": p["id"], "text": t} for p, t in zip(payload["players"], texts)]}
+
+    return handler
+
+
+def test_grounded_explanations_give_ratio_one_on_both_spans(spans):
+    client = _client(Pipeline(FakeClient(_explanations(wrong_first=False))))
+    match = _match(client)
+    body = {"match_id": match["match_id"], "club": match["home_club"]}
+    assert client.post("/predict_lineup", json=body).status_code == 200
+    span = _only(spans, "lineup.predict")
+    assert span.attributes["explanation.grounded_ratio"] == 1 and list(span.attributes["explanation.failed_rules"]) == []
+    news = {**body, "player_id": _player(client, match), "kind": "doubt"}
+    assert client.post("/team_news", json=news).status_code == 200
+    assert _only(spans, "lineup.team_news").attributes["explanation.grounded_ratio"] == 1
+
+
+def test_ungrounded_explanation_is_recorded_but_still_served(spans):
+    client = _client(Pipeline(FakeClient(_explanations(wrong_first=True))))
+    match = _match(client)
+    body = {"match_id": match["match_id"], "club": match["home_club"]}
+    reply = client.post("/predict_lineup", json=body)
+    assert reply.status_code == 200
+    span = _only(spans, "lineup.predict")
+    assert span.attributes["explanation.grounded_ratio"] < 1
+    assert list(span.attributes["explanation.failed_rules"]) == ["numbers"]
+    assert any(p["explanation"] == "Started 9 of the last 9." for p in reply.json()["players"] + [a for alts in reply.json()["alternatives"].values() for a in alts])
+
+
+def test_template_explanations_carry_no_grounding_attributes(spans):
+    client = _client(Pipeline())
+    match = _match(client)
+    client.post("/predict_lineup", json={"match_id": match["match_id"], "club": match["home_club"]})
+    assert not any(k.startswith("explanation.") for k in _only(spans, "lineup.predict").attributes)
+
+
+# --- news.step span ----------------------------------------------------
+
+from lineup_oracle.ingest import Feed  # noqa: E402
+from test_ingest import FakePipeline  # noqa: E402
+
+
+def _feed():
+    state = State(ROSTER, copy.deepcopy(EVENTS))
+    pipe = FakePipeline(state)
+    return Feed(state, pipe), pipe, state
+
+
+def test_correct_parse_gives_a_root_step_span(spans):
+    feed, _, _ = _feed()
+    item = feed.items[0]
+    feed.step()
+    span = _only(spans, "news.step")
+    assert span.parent is None
+    assert dict(span.attributes) == {"match_id": item.match_id, "club": item.club, "news.parse_correct": True, "news.applied": True}
+    assert all(item.payload["text"] not in str(v) for v in span.attributes.values())
+
+
+def test_wrong_kind_is_applied_but_not_correct(spans):
+    feed, pipe, _ = _feed()
+    item = feed.items[0]
+    player_id, kind = pipe.answers[item.payload["text"]]
+    pipe.override[item.payload["text"]] = (player_id, "doubt" if kind != "doubt" else "injury")
+    feed.step()
+    span = _only(spans, "news.step")
+    assert span.attributes["news.parse_correct"] is False and span.attributes["news.applied"] is True
+
+
+def test_player_outside_the_club_and_model_error_are_false_and_the_feed_goes_on(spans):
+    feed, pipe, state = _feed()
+    first, second = feed.items[0], feed.items[1]
+    outsider = next(p.id for p in state.players.values() if p.club != first.club)
+    pipe.override[first.payload["text"]] = (outsider, "injury")
+    pipe.override[second.payload["text"]] = RuntimeError("model down")
+    feed.step()
+    feed.step()
+    steps = [s for s in spans.get_finished_spans() if s.name == "news.step"]
+    assert [(s.attributes["news.parse_correct"], s.attributes["news.applied"]) for s in steps] == [(False, False), (False, False)]
+    feed.step()  # the third item still goes through
+    assert [s.attributes["news.applied"] for s in spans.get_finished_spans() if s.name == "news.step"][-1] is True
+
+
+def test_the_parser_gets_only_text_and_club_from_the_feed(spans):
+    state = State(ROSTER, copy.deepcopy(EVENTS))
+    answers = FakePipeline(state).answers
+
+    def handler(payload):
+        player_id, kind = answers[payload["text"]]
+        return {"club": payload["club"], "player_id": player_id, "kind": kind}
+
+    client = FakeClient(handler)
+    Feed(state, Pipeline(client)).step()
+    assert client.calls and all(set(call) == {"club", "roster", "text"} for call in client.calls)
+    assert _only(spans, "news.step").attributes["news.parse_correct"] is True
