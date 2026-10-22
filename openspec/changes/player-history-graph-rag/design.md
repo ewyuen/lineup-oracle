@@ -8,7 +8,7 @@ Observed in the repo:
 - `Event(id, match_id, type, minute, club, player, payload)`; `minute` is match-relative, and team news uses offsets of -48, -24 and -1 with `player` null and the name only in `payload.player_name`.
 - The seeded data has 6 clubs, 120 players (no duplicate names), 30 matches and 29,219 events: 25,829 passes, 1,013 tackles, 871 shots, 822 pressure, 474 possession changes, 180 team news, 30 metadata.
 - `State` already holds roster, events, `metadata` and `players` in memory; match metadata carries each club's true XI and the matchday.
-- No LLM client exists yet (the pipeline change adds it). The only HTTP client dependency is `httpx`.
+- The pipeline change has landed: `Pipeline` wraps an Agent Framework chat client (`LINEUP_LLM_*`), with `tests/fake_llm.py` as its test double.
 - The SciPy/HiGHS gotcha (all solves through `optimizer.py`) does not touch this change.
 
 ## Goals / Non-Goals
@@ -42,7 +42,7 @@ Observed in the repo:
 - Answer: the system prompt gets only the retrieved rows (capped at 100, newest last) and must cite event ids. The code checks that every cited id was retrieved; if not, or if the call fails, it uses the template summary.
 - The template summary is deterministic: counts by type, matches started, and each team-news item with its date, citing ids.
 
-**8. LLM client.** `llm.py` posts to a Foundry OpenAI-compatible chat-completions endpoint with `httpx`, using `LLM_ENDPOINT`, `LLM_API_KEY` and `LLM_MODEL` from the environment; unset means unconfigured. Timeout 10 s, no retries. Rejected: adding the OpenAI SDK for two calls. The pipeline change may replace this with its own client.
+**8. LLM client.** Reuse the pipeline's Agent Framework client (`Pipeline`, `LINEUP_LLM_*` settings, one long-lived loop thread, `DEFAULT_TIMEOUT`), adding a history-parser agent and a history-answer agent beside the existing two; unset means the model is off. Both steps are validated in code, as the other agents are. Rejected: the separate `httpx` client with `LLM_*` variables first proposed here, because the pipeline change has since landed and a second client would duplicate its settings, timeout and test fakes.
 
 **9. API and MCP.** `POST /player_history` takes either `question` or `filters` (exactly one, else 422) and returns `{filters, events, answer, cited_event_ids, llm_used}`. The MCP tool is the same pass-through as the others.
 

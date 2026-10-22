@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Literal
 
 import fastapi
@@ -11,11 +12,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
-from pydantic import Field
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from .checks import failed_rules
 from .explain import explain
+from .history import HISTORY_TYPES, HistoryError, HistoryFilters, iso, kickoff, retrieve_player_history, template_answer
 from .ingest import Feed, merge
 from .optimizer import POSITIONS
 from .picking import LIFTS_SUSPENSION, eligible, overlay, pick, statuses
@@ -91,6 +92,29 @@ class LineupOut(BaseModel):
     news: NewsOut | None = None
 
 
+class HistoryFiltersIn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    player: str = Field(max_length=100)  # id or exact name
+    types: list[Literal["shot", "tackle", "team_news", "started"]] | None = None
+    from_: datetime | None = Field(None, alias="from")
+    to: datetime | None = None
+    match: str | None = None
+
+
+class PlayerHistoryRequest(BaseModel):
+    question: str | None = Field(None, max_length=300)
+    filters: HistoryFiltersIn | None = None
+
+
+class PlayerHistoryOut(BaseModel):
+    filters: dict
+    events: list[dict]
+    answer: str
+    cited_event_ids: list[str]
+    llm_used: bool
+
+
 def _match(state: State, match_id: str):
     if match_id not in state.metadata:
         raise HTTPException(404, f"Unknown match {match_id!r}")
@@ -105,6 +129,25 @@ def _http(fn, *args):
         raise HTTPException(404, str(err)) from err
     except ValueError as err:
         raise HTTPException(422, str(err)) from err
+
+
+def _history_filters_from_question(state: State, pipeline: Pipeline, question: str) -> HistoryFilters:
+    """The model reads the question into filters; code checks every part, so a made-up one becomes a 422."""
+    kickoffs = {day: iso(kickoff(day)) for day in range(1, 1 + max(m["matchday"] for m in state.matches()))}
+    try:
+        parsed = pipeline.parse_history_question(question, kickoffs)
+    except ValueError as err:
+        raise HistoryError(str(err)) from err
+    if not parsed.player:
+        raise HistoryError("The question names no player; name one, e.g. 'What happened to <player name>?'")
+    unknown = sorted(set(parsed.types or ()) - set(HISTORY_TYPES))
+    if unknown:
+        raise HistoryError(f"The question asks for event types that do not exist: {', '.join(unknown)}")
+    try:
+        moments = [datetime.fromisoformat(t.replace("Z", "+00:00")) if t else None for t in (parsed.from_, parsed.to)]
+    except ValueError:
+        raise HistoryError("The question's time range could not be read") from None
+    return HistoryFilters(parsed.player, tuple(parsed.types) if parsed.types else None, moments[0], moments[1], parsed.match)
 
 
 def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], candidates: list[dict], club: Club) -> LineupOut:
@@ -308,6 +351,30 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                 selections = s.selections.get(key, ())
             xi, facts, candidates = _http(overlay, s, req.match_id, req.club, xi, facts, merged, selections)
             return _render(app.state.pipeline, req, xi, facts, candidates, s.roster.clubs[req.club])
+
+    @app.post("/player_history", response_model=PlayerHistoryOut)
+    def player_history(req: PlayerHistoryRequest) -> PlayerHistoryOut:
+        """What happened to a player: from explicit filters, or from a question the model turns into filters. Reads memory only."""
+        s: State = app.state.lineup
+        pipeline: Pipeline = app.state.pipeline
+        if (req.question is None) == (req.filters is None):
+            raise HTTPException(422, "Send either a question or filters, not both and not neither")
+        with tracer.start_as_current_span("lineup.player_history") as span:
+            span.set_attribute("history.input", "question" if req.question is not None else "filters")
+            try:
+                if req.filters is not None:
+                    f = req.filters
+                    asked = HistoryFilters(f.player, tuple(f.types) if f.types is not None else None, f.from_, f.to, f.match)
+                else:
+                    asked = _history_filters_from_question(s, pipeline, req.question)
+                history = retrieve_player_history(s, asked)
+            except HistoryError as err:
+                raise HTTPException(422, str(err)) from err
+            rows = [item.to_dict() for item in history.items]
+            written = pipeline.answer_history(req.question, history.filters_dict(), rows)
+            answer, cited = written or (template_answer(history), [r["id"] for r in rows])
+            span.set_attributes({"history.events": len(rows), "llm_used": written is not None})
+            return PlayerHistoryOut(filters=history.filters_dict(), events=rows, answer=answer, cited_event_ids=cited, llm_used=written is not None)
 
     @app.get("/news")
     def get_news(since: int | None = None, match_id: str | None = None, club: str | None = None, language: Language = "en") -> dict:
