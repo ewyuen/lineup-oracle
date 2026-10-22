@@ -899,6 +899,7 @@ public sealed class LineupUiTests
 
         Assert.Equal("lineup-changed", changed.Headers.GetValues("HX-Trigger").Single());
         Assert.Equal(2, Regex.Matches(html, "class=\"news-item").Count);
+        Assert.DoesNotContain("news-delay", html);
         AssertOrdered(html, "Pia Ash is out.", "Lee Rook is doubtful.");
         Assert.Contains("(not applied)", html);
         Assert.Contains("id=\"news-seq\" name=\"since\" value=\"3\" hx-swap-oob=\"true\"", html);
