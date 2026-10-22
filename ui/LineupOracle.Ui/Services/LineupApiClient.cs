@@ -99,6 +99,24 @@ public sealed record NewsDto(
 
 public sealed record RestartDto([property: JsonPropertyName("latest_seq")] long LatestSeq);
 
+public sealed record HistoryEventDto(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("match_id")] string MatchId,
+    [property: JsonPropertyName("occurred_at")] string OccurredAt,
+    [property: JsonPropertyName("payload")] JsonElement? Payload = null)
+{
+    public string? Text =>
+        Payload is { ValueKind: JsonValueKind.Object } p && p.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String
+            ? t.GetString()
+            : null;
+}
+
+public sealed record PlayerHistoryDto(
+    [property: JsonPropertyName("events")] IReadOnlyList<HistoryEventDto> Events,
+    [property: JsonPropertyName("answer")] string Answer,
+    [property: JsonPropertyName("llm_used")] bool LlmUsed);
+
 public sealed class LineupApiClient(HttpClient httpClient, ILogger<LineupApiClient> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -137,6 +155,12 @@ public sealed class LineupApiClient(HttpClient httpClient, ILogger<LineupApiClie
 
     public Task<ApiResult<RestartDto>> RestartFeedAsync(CancellationToken cancellationToken = default) =>
         SendAsync<RestartDto>(new HttpRequestMessage(HttpMethod.Post, "news/restart"), cancellationToken);
+
+    public Task<ApiResult<PlayerHistoryDto>> AskPlayerHistoryAsync(string question, CancellationToken cancellationToken = default) =>
+        SendAsync<PlayerHistoryDto>(new HttpRequestMessage(HttpMethod.Post, "player_history")
+        {
+            Content = JsonContent.Create(new { question }, options: JsonOptions)
+        }, cancellationToken);
 
     private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {

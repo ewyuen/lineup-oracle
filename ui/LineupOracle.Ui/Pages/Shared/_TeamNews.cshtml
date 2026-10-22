@@ -26,3 +26,7 @@
         }
     </div>
 </section>
+@if (Model.HistoryEnabled)
+{
+    <partial name="_PlayerHistory" model="Model" />
+}
