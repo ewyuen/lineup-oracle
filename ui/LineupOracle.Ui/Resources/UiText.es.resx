@@ -62,8 +62,9 @@
   <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>Se muestran probabilidades y el origen de la explicación.</value></data>
   <data name="ModeDescriptionFan" xml:space="preserve"><value>Solo nombres y explicaciones sencillas.</value></data>
   <data name="StatusOut" xml:space="preserve"><value>Lesionado</value></data>
+  <data name="StatusSuspended" xml:space="preserve"><value>Sancionado</value></data>
   <data name="StatusDoubt" xml:space="preserve"><value>Con duda</value></data>
-  <data name="AlternativeCandidates" xml:space="preserve"><value>Jugadores lesionados o con duda</value></data>
+  <data name="AlternativeCandidates" xml:space="preserve"><value>Jugadores no disponibles</value></data>
   <data name="AddAlternative" xml:space="preserve"><value>Añadir a alternativas</value></data>
   <data name="RemoveAlternative" xml:space="preserve"><value>Quitar de alternativas</value></data>
 </root>

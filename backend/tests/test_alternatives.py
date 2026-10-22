@@ -198,7 +198,8 @@ def test_suspension_after_selection_hides_it_and_the_next_change_discards_it(sce
     scene.select(a)
     scene.news(a, "suspension")
     after = scene.lineup()
-    assert a not in [p["id"] for p in after["alternatives"][POS]] and _candidate(after, a) is None
+    assert a not in [p["id"] for p in after["alternatives"][POS]]
+    assert _candidate(after, a)["kind"] == "suspension" and _candidate(after, a)["included"] is False  # still listed, never selectable
     key = ("s", scene.match["match_id"], scene.club)
     assert state.selections[key] == (a,)  # kept until the next change
     scene.select(b)
@@ -319,3 +320,34 @@ def ROSTER_NAME(player_id):
 
 def _number(player_id):
     return next(p.number for c in ROSTER.clubs.values() for p in c.players if p.id == player_id)
+
+
+def test_suspended_non_starter_is_listed_but_not_selectable(scene, state):
+    a = scene.deep[0]
+    scene.news(a, "suspension")
+    assert _candidate(scene.lineup(), a) == {"id": a, "name": ROSTER_NAME(a), "number": _number(a), "position": POS, "kind": "suspension", "included": False}
+    assert scene.select(a).status_code == 422 and state.selections == {}
+    assert scene.select(a, False).status_code == 200  # removal is always accepted
+
+
+def test_injury_or_doubt_news_for_a_suspended_player_is_rejected(scene):
+    a = scene.deep[0]
+    scene.news(a, "suspension")
+    before = scene.lineup()
+    for kind in ("injury", "doubt"):
+        response = scene.news(a, kind)
+        assert response.status_code == 422 and ROSTER_NAME(a) in response.json()["detail"]
+    assert scene.news(a, "suspension").status_code == 200  # a repeat is fine
+    assert scene.lineup() == before
+
+
+def test_a_later_feed_event_does_not_lift_a_session_suspension(scene, state):
+    a = scene.deep[0]
+    scene.news(a, "suspension")
+    feed = scene.client.app.state.feed
+    key = (scene.match["match_id"], scene.club)
+    with feed.lock:
+        feed._seq += 1
+        feed._shared[key] = {a: ("injury", feed._seq)}
+    assert _candidate(scene.lineup(), a)["kind"] == "suspension"
+    assert _candidate(scene.lineup(session_id="other"), a)["kind"] == "injury"

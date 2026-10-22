@@ -18,7 +18,7 @@ The page SHALL list the season's matches from the API, grouped or ordered by mat
 - **THEN** the page shows the formation and the 11 players grouped in lines for goalkeeper, defenders, midfielders and forwards, each with name, shirt number and explanation
 
 ### Requirement: Alternatives
-The page SHALL show, for each position line, up to two alternatives returned by the API, none of whom is in the starting XI. It SHALL identify, from the status the API returns, when an alternative is still injured or doubtful and, in analyst mode, provide a way to add eligible injured or doubtful non-starters to the alternatives without changing their status or the starting XI.
+The page SHALL show, for each position line, up to two alternatives returned by the API, none of whom is in the starting XI. It SHALL identify, from the status the API returns, when an alternative is still injured or doubtful and, in analyst mode, provide a way to add eligible injured or doubtful non-starters (suspended ones are listed but cannot be added) to the alternatives without changing their status or the starting XI.
 
 #### Scenario: Alternatives listed
 - **WHEN** a predicted XI is shown
@@ -250,7 +250,7 @@ The page SHALL show one control to restart the shared feed, usable by any visito
 - **THEN** within one poll interval the ticker shows the marker and the lineup is refreshed
 
 ### Requirement: Choose eligible unavailable players as alternatives
-The analyst SHALL be able to add or remove an injured or doubtful non-starter from the alternatives for the selected match and club. The action SHALL use an in-page update, preserve the displayed starting XI, and SHALL NOT clear or alter the player's injury or doubt status. Suspended players SHALL NOT be offered for selection.
+The analyst SHALL be able to add or remove an injured or doubtful non-starter from the alternatives for the selected match and club. The action SHALL use an in-page update, preserve the displayed starting XI, and SHALL NOT clear or alter the player's injury or doubt status. The analyst list of candidates SHALL be headed "Unavailable players" (en, es and zh-Hant) and SHALL list every injured, doubtful and suspended non-starter the API returns, each with a status badge; a suspended player SHALL show a "Suspended" badge and SHALL NOT be offered for selection.
 
 #### Scenario: Add an injured player
 - **WHEN** the analyst adds an eligible injured player to the alternatives
@@ -281,8 +281,12 @@ The analyst SHALL be able to add or remove an injured or doubtful non-starter fr
 - **THEN** alternatives and their injury or doubt status are shown, and no add or remove action is offered
 
 #### Scenario: Suspended players cannot be selected
-- **WHEN** a player is suspended
-- **THEN** the page does not offer an action to include that player in alternatives
+- **WHEN** a non-starter is suspended
+- **THEN** the candidate list shows the player with a "Suspended" badge and the page does not offer an action to include that player in alternatives
+
+#### Scenario: Candidate list heading
+- **WHEN** the candidate list is shown in analyst mode
+- **THEN** it is headed "Unavailable players" in the selected language
 
 #### Scenario: Alternative selection persists for the browser session
 - **WHEN** an analyst selects an alternative and later refreshes the same match and club in that browser session

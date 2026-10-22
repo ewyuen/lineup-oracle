@@ -84,7 +84,9 @@
                                     {
                                         <li>
                                             <span class="shirt-number">#@candidate.Number</span> @candidate.Name
-                                            <span class="status-badge status-@(candidate.Kind == "doubt" ? "doubt" : "out")">@(candidate.Kind == "doubt" ? T["StatusDoubt"] : T["StatusOut"])</span>
+                                            <span class="status-badge status-@(candidate.Kind == "doubt" ? "doubt" : "out")">@(candidate.Kind == "doubt" ? T["StatusDoubt"] : candidate.Kind == "suspension" ? T["StatusSuspended"] : T["StatusOut"])</span>
+                                            @if (candidate.Kind != "suspension")
+                                            {
                                             <form method="post" asp-page="/Index" asp-page-handler="Alternative">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
@@ -95,6 +97,7 @@
                                                 <button type="submit" class="button button-small"
                                                         hx-post="/?handler=Alternative" hx-target="#lineup" hx-swap="outerHTML">@(candidate.Included ? T["RemoveAlternative"] : T["AddAlternative"])</button>
                                             </form>
+                                            }
                                         </li>
                                     }
                                 </ul>

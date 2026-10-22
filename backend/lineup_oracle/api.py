@@ -18,7 +18,7 @@ from .checks import failed_rules
 from .explain import explain
 from .ingest import Feed, merge
 from .optimizer import POSITIONS
-from .picking import eligible, overlay, pick, statuses
+from .picking import LIFTS_SUSPENSION, eligible, overlay, pick, statuses
 from .pipeline import NewsRejected, Pipeline
 from .roster import Club
 from .state import State
@@ -258,6 +258,10 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                     raise HTTPException(422, f"Player {player_id!r} does not belong to club {club_name!r}")
                 feed: Feed = app.state.feed
                 key = (req.session_id, req.match_id, club_name)
+                current = merge(feed.shared_availability(req.match_id, club_name), s.availability.get(key, {})).get(player_id, ("", 0))[0]
+                if current == "suspension" and kind not in LIFTS_SUSPENSION:
+                    name = next(p.name for p in club.players if p.id == player_id)
+                    raise HTTPException(422, f"{name} is suspended; only a cleared status ends a suspension")
                 updated = {**s.availability.get(key, {}), player_id: (kind, feed.latest_seq)}
                 merged = merge(feed.shared_availability(req.match_id, club_name), updated)
                 xi, facts = _http(pick, s, req.match_id, club_name, statuses(merged))  # raises before any state changes

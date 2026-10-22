@@ -1,0 +1,55 @@
+## MODIFIED Requirements
+
+### Requirement: Alternatives
+The page SHALL show, for each position line, up to two alternatives returned by the API, none of whom is in the starting XI. It SHALL identify, from the status the API returns, when an alternative is still injured or doubtful and, in analyst mode, provide a way to add eligible injured or doubtful non-starters (suspended ones are listed but cannot be added) to the alternatives without changing their status or the starting XI.
+
+#### Scenario: Alternatives listed
+- **WHEN** a predicted XI is shown
+- **THEN** each position line lists up to two alternatives, none of whom is in the XI
+
+#### Scenario: Selected injured or doubtful player is shown with status
+- **WHEN** an injured or doubtful player has been manually included in the alternatives
+- **THEN** the page shows the player under their position and indicates their current injury or doubt status
+
+### Requirement: Choose eligible unavailable players as alternatives
+The analyst SHALL be able to add or remove an injured or doubtful non-starter from the alternatives for the selected match and club. The action SHALL use an in-page update, preserve the displayed starting XI, and SHALL NOT clear or alter the player's injury or doubt status. The analyst list of candidates SHALL be headed "Unavailable players" (en, es and zh-Hant) and SHALL list every injured, doubtful and suspended non-starter the API returns, each with a status badge; a suspended player SHALL show a "Suspended" badge and SHALL NOT be offered for selection.
+
+#### Scenario: Add an injured player
+- **WHEN** the analyst adds an eligible injured player to the alternatives
+- **THEN** the lineup fragment updates to show the player in their position's alternatives, the starting XI is unchanged, and the injury status remains visible
+
+#### Scenario: Add a doubtful player
+- **WHEN** the analyst adds an eligible doubtful player to the alternatives
+- **THEN** the lineup fragment updates to show the player in their position's alternatives, the starting XI is unchanged, and the doubt status remains visible
+
+#### Scenario: Remove a selected player
+- **WHEN** the analyst removes a manually included player from the alternatives
+- **THEN** the lineup fragment updates, the freed slot is filled by the API's list (a hidden earlier selection, otherwise the next ranked alternative), and the starting XI remains unchanged
+
+#### Scenario: A hidden selection can be added again
+- **WHEN** an eligible player the analyst selected earlier is hidden by the two-slot limit
+- **THEN** the page offers an add action for that player, and using it shows the player again
+
+#### Scenario: The position already has two alternatives
+- **WHEN** the analyst adds an eligible player to a position with two alternatives
+- **THEN** the new player appears in the list and the lowest-ranked alternative is displaced
+
+#### Scenario: More players are selected than there are slots
+- **WHEN** the analyst selects more than two eligible players for the same position
+- **THEN** the two most recently selected players appear in the alternatives
+
+#### Scenario: Fan mode has no controls
+- **WHEN** the page is in fan mode
+- **THEN** alternatives and their injury or doubt status are shown, and no add or remove action is offered
+
+#### Scenario: Suspended players cannot be selected
+- **WHEN** a non-starter is suspended
+- **THEN** the candidate list shows the player with a "Suspended" badge and the page does not offer an action to include that player in alternatives
+
+#### Scenario: Candidate list heading
+- **WHEN** the candidate list is shown in analyst mode
+- **THEN** it is headed "Unavailable players" in the selected language
+
+#### Scenario: Alternative selection persists for the browser session
+- **WHEN** an analyst selects an alternative and later refreshes the same match and club in that browser session
+- **THEN** the selection remains reflected in the alternatives

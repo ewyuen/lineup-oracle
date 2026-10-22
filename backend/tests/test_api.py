@@ -536,3 +536,19 @@ def test_structured_path_has_no_news_object(client):
     match = _match(client)
     starter = _predict(client, match).json()["players"][3]["id"]
     assert _news(client, match, starter, "injury").json()["news"] is None
+
+
+def test_only_a_cleared_text_lifts_a_suspension(text_client, state):
+    client, pipeline, _, match = text_client
+    club = match["home_club"]
+    victim = _predict(client, match).json()["players"][0]
+    player = next(p for p in state.roster.clubs[club].players if p.id == victim["id"])
+    assert client.post("/team_news", json={"match_id": match["match_id"], "club": club, "player_id": player.id, "kind": "suspension", "session_id": "a"}).status_code == 200
+    for kind in ("recovered", "fit", "doubt", "injury"):
+        pipeline.result = NewsRead("applied", club, player, kind)
+        got = _text(client, match, session_id="a")
+        assert got.status_code == 422 and player.name in got.json()["detail"], kind
+    assert victim["id"] not in {p["id"] for p in _predict(client, match, session_id="a").json()["players"]}
+    pipeline.result = NewsRead("applied", club, player, "cleared")
+    assert _text(client, match, session_id="a").status_code == 200
+    assert victim["id"] in {p["id"] for p in _predict(client, match, session_id="a").json()["players"]}
