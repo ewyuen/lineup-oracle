@@ -8,7 +8,7 @@ Injured players, and doubtful players who do not rank in the top two, are exclud
 
 - Let an analyst explicitly include a non-starting injured or doubtful player in the alternatives for their position, without clearing that player's status or changing the starting XI.
 - Exclude suspended players from this override.
-- Show up to four alternatives per position: the optimizer's two natural alternatives plus manual selections. A position's bench is at most four players, so no selection ever needs to push another out.
+- Show up to two alternatives per position total. A manually selected injured or doubtful player takes a spot from the lowest-ranked alternative; if manual selections exceed the two spots, the latest selection takes priority.
 - Give manually included players an explanation and a visible status, and add a status to every returned player.
 - Keep manual selections scoped to the browser session, match, and club until changed.
 
@@ -20,7 +20,8 @@ None.
 
 ### Modified Capabilities
 
-- `lineup-api`: Return up to four alternatives and support session-scoped analyst selections of eligible injured or doubtful players while preserving status and XI.
+- `llm-explanations`: Explain listed players who are injured or unavailable truthfully, in templates and model output.
+- `lineup-api`: Return up to two alternatives and support session-scoped analyst selections of eligible injured or doubtful players while preserving status and XI.
 - `lineup-ui`: Let the analyst select eligible players for alternatives and reflect the API's updated list without a full-page reload.
 
 ## Impact

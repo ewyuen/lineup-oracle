@@ -3,11 +3,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: Alternatives
-The page SHALL show, for each position line, up to four alternatives returned by the API, none of whom is in the starting XI. It SHALL identify, from the status the API returns, when an alternative is still injured or doubtful and, in analyst mode, provide a way to add eligible injured or doubtful non-starters to the alternatives without changing their status or the starting XI.
+The page SHALL show, for each position line, up to two alternatives returned by the API, none of whom is in the starting XI. It SHALL identify, from the status the API returns, when an alternative is still injured or doubtful and, in analyst mode, provide a way to add eligible injured or doubtful non-starters to the alternatives without changing their status or the starting XI.
 
 #### Scenario: Alternatives listed
 - **WHEN** a predicted XI is shown
-- **THEN** each position line lists up to four alternatives, none of whom is in the XI
+- **THEN** each position line lists up to two alternatives, none of whom is in the XI
 
 #### Scenario: Selected injured or doubtful player is shown with status
 - **WHEN** an injured or doubtful player has been manually included in the alternatives
@@ -28,7 +28,19 @@ The analyst SHALL be able to add or remove an injured or doubtful non-starter fr
 
 #### Scenario: Remove a selected player
 - **WHEN** the analyst removes a manually included player from the alternatives
-- **THEN** the lineup fragment updates with the normal ranked alternatives and the starting XI remains unchanged
+- **THEN** the lineup fragment updates, the freed slot is filled by the API's list (a hidden earlier selection, otherwise the next ranked alternative), and the starting XI remains unchanged
+
+#### Scenario: A hidden selection can be added again
+- **WHEN** an eligible player the analyst selected earlier is hidden by the two-slot limit
+- **THEN** the page offers an add action for that player, and using it shows the player again
+
+#### Scenario: The position already has two alternatives
+- **WHEN** the analyst adds an eligible player to a position with two alternatives
+- **THEN** the new player appears in the list and the lowest-ranked alternative is displaced
+
+#### Scenario: More players are selected than there are slots
+- **WHEN** the analyst selects more than two eligible players for the same position
+- **THEN** the two most recently selected players appear in the alternatives
 
 #### Scenario: Fan mode has no controls
 - **WHEN** the page is in fan mode
