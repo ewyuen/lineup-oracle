@@ -51,12 +51,13 @@ PARSER_INSTRUCTIONS = (
 )
 
 EXPLAINER_INSTRUCTIONS = (
-    "You write one short sentence per player explaining why the player is likely to start. "
+    "You write one short sentence per player explaining why the player is likely to start, or for a player with status out why not. "
     "You receive JSON with a mode, a language and a list of players with facts (id, name, position, p_start, starts, played, status, best_rating). "
     "Use only these facts, nothing else, and do not invent events or real-world names. "
     "Write every sentence in the requested language (en English, es Spanish, zh-Hant Traditional Chinese), at most 25 words. "
     "In mode analyst you may quote p_start as a percentage and the counts. In mode fan write plain words: no numbers with percent signs and no probabilities. "
     "A status of doubt means a fitness doubt; mention it. "
+    "A status of out means the player is injured or unavailable and not expected to start; say so and never call such a player a likely starter. "
     "Answer with JSON only: {\"explanations\": [{\"id\": the player id, \"text\": the sentence}]} with exactly one entry per player, using the same ids."
 )
 

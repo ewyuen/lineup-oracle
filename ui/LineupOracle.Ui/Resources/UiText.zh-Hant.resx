@@ -61,4 +61,9 @@
   <data name="NoLineup" xml:space="preserve"><value>選擇賽事和球會以查看陣容。</value></data>
   <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>顯示機率和解釋來源。</value></data>
   <data name="ModeDescriptionFan" xml:space="preserve"><value>只顯示名稱和簡明解釋。</value></data>
+  <data name="StatusOut" xml:space="preserve"><value>受傷</value></data>
+  <data name="StatusDoubt" xml:space="preserve"><value>成疑</value></data>
+  <data name="AlternativeCandidates" xml:space="preserve"><value>受傷或成疑球員</value></data>
+  <data name="AddAlternative" xml:space="preserve"><value>加入替補人選</value></data>
+  <data name="RemoveAlternative" xml:space="preserve"><value>移出替補人選</value></data>
 </root>

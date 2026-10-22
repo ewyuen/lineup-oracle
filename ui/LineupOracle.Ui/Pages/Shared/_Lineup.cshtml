@@ -57,6 +57,10 @@
                                 {
                                     <li>
                                         <span class="shirt-number">#@alternative.Number</span> @alternative.Name
+                                        @if (alternative.Status != "available")
+                                        {
+                                            <span class="status-badge status-@alternative.Status">@(alternative.Status == "doubt" ? T["StatusDoubt"] : T["StatusOut"])</span>
+                                        }
                                         @if (Model.Mode == "analyst")
                                         {
                                             <span class="probability @(alternative.PStart < 0.5 ? "probability-low" : "")">
@@ -68,6 +72,35 @@
                             </ul>
                         }
                     </div>
+                    @if (Model.Mode == "analyst")
+                    {
+                        var candidates = (Model.Lineup.Candidates ?? []).Where(candidate => candidate.Position == position).ToList();
+                        if (candidates.Count > 0)
+                        {
+                            <div class="alternatives candidates">
+                                <span class="alternatives-label">@T["AlternativeCandidates"]</span>
+                                <ul>
+                                    @foreach (var candidate in candidates)
+                                    {
+                                        <li>
+                                            <span class="shirt-number">#@candidate.Number</span> @candidate.Name
+                                            <span class="status-badge status-@(candidate.Kind == "doubt" ? "doubt" : "out")">@(candidate.Kind == "doubt" ? T["StatusDoubt"] : T["StatusOut"])</span>
+                                            <form method="post" asp-page="/Index" asp-page-handler="Alternative">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
+                                                <input type="hidden" name="club" value="@Model.SelectedClub" />
+                                                <input type="hidden" name="mode" value="@Model.Mode" />
+                                                <input type="hidden" name="playerId" value="@candidate.Id" />
+                                                <input type="hidden" name="included" value="@(candidate.Included ? "false" : "true")" />
+                                                <button type="submit" class="button button-small"
+                                                        hx-post="/?handler=Alternative" hx-target="#lineup" hx-swap="outerHTML">@(candidate.Included ? T["RemoveAlternative"] : T["AddAlternative"])</button>
+                                            </form>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    }
                 </section>
             }
         </div>

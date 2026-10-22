@@ -26,9 +26,11 @@ class State:
     events: list[Event]
     metadata: dict[str, Event] = field(init=False)
     players: dict[str, Player] = field(init=False)
-    # (session_id, match_id, club) -> {player_id: ("out" | "doubt", feed seq when submitted)}; in memory only, lost on restart
+    # (session_id, match_id, club) -> {player_id: (news kind, feed seq when submitted)}; in memory only, lost on restart
     # shortcut: sessions are never evicted; add a cap or expiry if the API stays public for long
     availability: dict[tuple[str, str, str], dict[str, tuple[str, int]]] = field(default_factory=dict)
+    # (session_id, match_id, club) -> player ids the analyst put in the alternatives, oldest first; replaced, never edited in place
+    selections: dict[tuple[str, str, str], tuple[str, ...]] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)  # held while news is checked and saved
 
     def __post_init__(self) -> None:
@@ -70,3 +72,4 @@ class State:
 
     def reset(self) -> None:
         self.availability.clear()
+        self.selections.clear()

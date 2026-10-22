@@ -18,7 +18,7 @@ from .checks import failed_rules
 from .explain import explain
 from .ingest import Feed, merge
 from .optimizer import POSITIONS
-from .picking import STATUS_OF_KIND, pick
+from .picking import eligible, overlay, pick, statuses
 from .pipeline import NewsRejected, Pipeline
 from .roster import Club
 from .state import State
@@ -47,12 +47,18 @@ class TeamNewsRequest(PredictRequest):
     text: str | None = Field(None, max_length=100)
 
 
+class AlternativeRequest(PredictRequest):
+    player_id: str
+    included: bool
+
+
 class PlayerOut(BaseModel):
     id: str
     name: str
     number: int
     position: str
     p_start: float
+    status: Literal["available", "doubt", "out"]
     explanation: str
 
 
@@ -63,12 +69,22 @@ class NewsOut(BaseModel):
     kind: str | None = None
 
 
+class CandidateOut(BaseModel):
+    id: str
+    name: str
+    number: int
+    position: str
+    kind: Kind
+    included: bool
+
+
 class LineupOut(BaseModel):
     match_id: str
     club: str
     formation: str
     players: list[PlayerOut]
     alternatives: dict[str, list[PlayerOut]]
+    candidates: list[CandidateOut]
     llm_used: bool
     mode: Mode
     language: Language
@@ -91,7 +107,7 @@ def _http(fn, *args):
         raise HTTPException(422, str(err)) from err
 
 
-def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], club: Club) -> LineupOut:
+def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], candidates: list[dict], club: Club) -> LineupOut:
     """Explanations from the model (slow), or the templates if it is off or fails."""
     texts = pipeline.explain(facts, req.mode, req.language)
     span_attributes = {"formation": xi.formation, "llm_used": texts is not None, "mode": req.mode, "language": req.language}
@@ -106,7 +122,7 @@ def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], club
     def out(player, p_start):
         fact = by_id[player.id]
         text = texts[player.id] if texts else explain(player, p_start, fact["starts"], fact["played"], fact["status"], req.mode)
-        return PlayerOut(id=player.id, name=player.name, number=player.number, position=player.position, p_start=p_start, explanation=text)
+        return PlayerOut(id=player.id, name=player.name, number=player.number, position=player.position, p_start=p_start, status=fact["status"], explanation=text)
 
     return LineupOut(
         match_id=req.match_id,
@@ -114,6 +130,7 @@ def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], club
         formation=xi.formation,
         players=[out(p, s) for p, s in xi.players],
         alternatives={pos: [out(p, s) for p, s in xi.alternatives[pos]] for pos in POSITIONS},
+        candidates=candidates,
         llm_used=texts is not None,
         mode=req.mode,
         language=req.language,
@@ -167,22 +184,35 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
             })
         return {"match_id": match_id, "matchday": meta["matchday"], "clubs": clubs}
 
-    def current_lineup(req: PredictRequest):
-        """The XI and facts this session sees: the stored one, or a pick with its own news merged over the shared."""
+    def _current(req: PredictRequest, personal):
+        """(xi, facts, merged availability) the request would use: the stored prediction without news of its own, else a fresh pick."""
         feed: Feed = app.state.feed
-        personal = app.state.lineup.availability.get((req.session_id, req.match_id, req.club))
-        if personal is None:  # no news of its own: read the stored XI
-            return _http(feed.prediction, req.match_id, req.club)
-        return _http(pick, app.state.lineup, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), personal))
+        merged = merge(feed.shared_availability(req.match_id, req.club), personal or {})
+        if personal is None:
+            xi, facts = _http(feed.prediction, req.match_id, req.club)
+        else:
+            xi, facts = _http(pick, app.state.lineup, req.match_id, req.club, statuses(merged))
+        return xi, facts, merged
+
+    def _view(req: PredictRequest):
+        """(xi, facts, candidates) this session sees for the requested club: its own news merged over the shared, and its alternative selections."""
+        s: State = app.state.lineup
+        key = (req.session_id, req.match_id, req.club)
+        xi, facts, merged = _current(req, s.availability.get(key))
+        return _http(overlay, s, req.match_id, req.club, xi, facts, merged, s.selections.get(key, ()))
+
 
     @app.post("/predict_lineup", response_model=LineupOut)
     def predict_lineup(req: PredictRequest) -> LineupOut:
         with tracer.start_as_current_span("lineup.predict") as span:
             span.set_attributes({"match_id": req.match_id, "club": req.club})
             s: State = app.state.lineup
-            span.set_attribute("lineup.source", "stored" if s.availability.get((req.session_id, req.match_id, req.club)) is None else "personal")
-            xi, facts = current_lineup(req)
-            return _render(app.state.pipeline, req, xi, facts, s.roster.clubs[req.club])
+            feed: Feed = app.state.feed
+            personal = s.availability.get((req.session_id, req.match_id, req.club))
+            span.set_attribute("lineup.source", "stored" if personal is None else "personal")
+            xi, facts, merged = _current(req, personal)
+            xi, facts, candidates = _http(overlay, s, req.match_id, req.club, xi, facts, merged, s.selections.get((req.session_id, req.match_id, req.club), ()))
+            return _render(app.state.pipeline, req, xi, facts, candidates, s.roster.clubs[req.club])
 
     @app.post("/team_news", response_model=LineupOut)
     def team_news(req: TeamNewsRequest) -> LineupOut:
@@ -214,8 +244,8 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                             raise HTTPException(429, f"You can post one line every {POST_INTERVAL} seconds; try again shortly.")
                         last_post[req.session_id] = now
                         app.state.feed.post(req.match_id, req.club, read.texts)
-                    xi, facts = current_lineup(req)
-                    out = _render(app.state.pipeline, req, xi, facts, club)
+                    xi, facts, candidates = _view(req)
+                    out = _render(app.state.pipeline, req, xi, facts, candidates, club)
                     out.news = NewsOut(outcome="posted", club=req.club, player_name=read.player.name if read.player else None)
                     return out
                 player_id, kind, club_name = read.player.id, read.kind, read.club
@@ -228,14 +258,52 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                     raise HTTPException(422, f"Player {player_id!r} does not belong to club {club_name!r}")
                 feed: Feed = app.state.feed
                 key = (req.session_id, req.match_id, club_name)
-                updated = {**s.availability.get(key, {}), player_id: (STATUS_OF_KIND[kind], feed.latest_seq)}
-                xi, facts = _http(pick, s, req.match_id, club_name, merge(feed.shared_availability(req.match_id, club_name), updated))  # raises before any state changes
+                updated = {**s.availability.get(key, {}), player_id: (kind, feed.latest_seq)}
+                merged = merge(feed.shared_availability(req.match_id, club_name), updated)
+                xi, facts = _http(pick, s, req.match_id, club_name, statuses(merged))  # raises before any state changes
                 s.availability[key] = updated
+                selections = s.selections.get(key, ())
             if club_name != req.club:  # the status landed on the other club; the response is still the requested club's XI
-                xi, facts = current_lineup(req)
-            out = _render(app.state.pipeline, req, xi, facts, s.roster.clubs[req.club])  # model call, after the lock
+                xi, facts, candidates = _view(req)
+            else:
+                xi, facts, candidates = _http(overlay, s, req.match_id, club_name, xi, facts, merged, selections)
+            out = _render(app.state.pipeline, req, xi, facts, candidates, s.roster.clubs[req.club])  # model call, after the lock
             out.news = news
             return out
+
+    @app.post("/alternatives", response_model=LineupOut)
+    def alternatives(req: AlternativeRequest) -> LineupOut:
+        """Put a non-starting injured or doubtful player in the alternatives, or take them out. Changes no availability and no XI."""
+        with tracer.start_as_current_span("lineup.alternatives") as span:
+            span.set_attributes({"match_id": req.match_id, "club": req.club, "included": req.included})
+            s: State = app.state.lineup
+            meta = _match(s, req.match_id)
+            club = s.roster.clubs.get(req.club)
+            if club is None or req.club not in (meta["home_club"], meta["away_club"]):
+                raise HTTPException(422, f"Club {req.club!r} does not play in match {req.match_id!r}")
+            if req.player_id not in {p.id for p in club.players}:
+                raise HTTPException(422, f"Player {req.player_id!r} does not belong to club {req.club!r}")
+            key = (req.session_id, req.match_id, req.club)
+            personal = s.availability.get(key)
+            xi, facts, merged = _current(req, personal)  # no lock: this may run the optimizer
+            valid = eligible(club, xi, merged)
+            if req.included and req.player_id not in valid:
+                raise HTTPException(422, f"Player {req.player_id!r} is a starter or has no injury or doubt news, so cannot be an alternative")
+            with s.lock:  # copy on write, like availability; eligibility above is advisory, the read filter enforces it
+                kept = [i for i in s.selections.get(key, ()) if i in valid and i != req.player_id]
+                if req.included:
+                    _, _, view = _http(overlay, s, req.match_id, req.club, xi, facts, merged, s.selections.get(key, ()))
+                    if any(c["id"] == req.player_id and c["included"] for c in view):
+                        kept = [i for i in s.selections.get(key, ()) if i in valid]  # already shown: nothing moves
+                    else:
+                        kept.append(req.player_id)
+                if kept:
+                    s.selections[key] = tuple(kept)
+                else:
+                    s.selections.pop(key, None)
+                selections = s.selections.get(key, ())
+            xi, facts, candidates = _http(overlay, s, req.match_id, req.club, xi, facts, merged, selections)
+            return _render(app.state.pipeline, req, xi, facts, candidates, s.roster.clubs[req.club])
 
     @app.get("/news")
     def get_news(since: int | None = None, match_id: str | None = None, club: str | None = None, language: Language = "en") -> dict:

@@ -667,6 +667,106 @@ public sealed class LineupUiTests
         Assert.Equal("es", reloadBody.RootElement.GetProperty("language").GetString());
     }
 
+    [Fact]
+    public async Task AnalystSelectsAndRemovesAnInjuredAlternativeWithoutChangingTheXi()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        var xi = PlayerIds(initial);
+        Assert.Contains("Pol Hart", initial);
+        Assert.Contains("Ewan Rook", initial);
+        Assert.Contains("Add to alternatives", initial);
+        Assert.DoesNotContain("Remove from alternatives", initial);
+        Assert.DoesNotContain("Suspended Sam", initial);
+
+        using var add = HtmxPost("/?handler=Alternative", Form(ExtractAntiforgeryToken(initial),
+            ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst"), ("playerId", "cand-injured"), ("included", "true")));
+        using var added = await client.SendAsync(add);
+        var addedHtml = await added.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, added.StatusCode);
+        Assert.Equal("#lineup", added.Headers.GetValues("HX-Retarget").Single());
+        Assert.Equal(xi, PlayerIds(addedHtml));
+        Assert.Contains("status-out", addedHtml);
+        Assert.Contains("Injured", addedHtml);
+        Assert.Contains("Remove from alternatives", addedHtml);
+        var call = handler.Calls.Last(c => c.Path.EndsWith("/alternatives", StringComparison.Ordinal));
+        using var sent = JsonDocument.Parse(call.Body);
+        Assert.Equal("cand-injured", sent.RootElement.GetProperty("player_id").GetString());
+        Assert.True(sent.RootElement.GetProperty("included").GetBoolean());
+
+        // The same session cookie on a refresh still shows the selection.
+        var refreshed = await client.GetStringAsync("/");
+        Assert.Contains("Remove from alternatives", refreshed);
+        var sessions = handler.Calls.Where(c => c.Path.EndsWith("/alternatives", StringComparison.Ordinal) || c.Path.EndsWith("/predict_lineup", StringComparison.Ordinal))
+            .Select(c => JsonDocument.Parse(c.Body).RootElement.GetProperty("session_id").GetString()).Distinct().ToList();
+        Assert.Single(sessions);
+
+        using var remove = HtmxPost("/?handler=Alternative", Form(ExtractAntiforgeryToken(refreshed),
+            ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst"), ("playerId", "cand-injured"), ("included", "false")));
+        using var removed = await client.SendAsync(remove);
+        var removedHtml = await removed.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Remove from alternatives", removedHtml);
+        Assert.Equal(xi, PlayerIds(removedHtml));
+    }
+
+    [Fact]
+    public async Task ADoubtfulAlternativeShowsItsStatusAndAHiddenSelectionCanBeAddedAgain()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        using var add = HtmxPost("/?handler=Alternative", Form(ExtractAntiforgeryToken(initial),
+            ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst"), ("playerId", "cand-doubt"), ("included", "true")));
+        var html = await (await client.SendAsync(add)).Content.ReadAsStringAsync();
+        Assert.Contains("status-doubt", html);
+        Assert.Contains("Doubtful", html);
+
+        // A candidate the API reports as not included (hidden by the two-slot limit) gets an add action again.
+        var again = await client.GetStringAsync("/");
+        Assert.Matches("(?s)Pol Hart.*?value=\"true\".*?Add to alternatives", again);
+    }
+
+    [Fact]
+    public async Task FanModeShowsAlternativeStatusButNoSelectionControls()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        using var add = HtmxPost("/?handler=Alternative", Form(ExtractAntiforgeryToken(initial),
+            ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst"), ("playerId", "cand-doubt"), ("included", "true")));
+        await client.SendAsync(add);
+
+        var fan = await client.GetStringAsync("/?mode=fan");
+
+        Assert.Contains("Ewan Rook", fan);
+        Assert.Contains("status-doubt", fan);
+        Assert.DoesNotContain("Add to alternatives", fan);
+        Assert.DoesNotContain("Remove from alternatives", fan);
+        Assert.DoesNotContain("handler=Alternative", fan);
+    }
+
+    [Fact]
+    public async Task ARejectedSelectionOnlyReplacesTheMessageAndKeepsTheLineup()
+    {
+        using var handler = new StubApiHandler { AlternativeStatusCode = HttpStatusCode.UnprocessableEntity };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var initial = await client.GetStringAsync("/");
+        using var add = HtmxPost("/?handler=Alternative", Form(ExtractAntiforgeryToken(initial),
+            ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst"), ("playerId", "cand-injured"), ("included", "true")));
+        using var response = await client.SendAsync(add);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("#news-message", response.Headers.GetValues("HX-Retarget").Single());
+        Assert.Contains("Player has no injury or doubt news.", html);
+        Assert.DoesNotContain("class=\"player-card\"", html);
+    }
+
     private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client)
     {
         var html = await client.GetStringAsync("/");
@@ -1006,6 +1106,8 @@ public sealed class LineupUiTests
         public HttpStatusCode? NewsStatusCode { get; set; }
         public string? NewsOutcomeJson { get; set; }
         public HttpStatusCode? PredictionStatusCode { get; set; }
+        public HttpStatusCode? AlternativeStatusCode { get; set; }
+        private readonly ConcurrentDictionary<string, HashSet<string>> selections = new();
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -1044,6 +1146,31 @@ public sealed class LineupUiTests
                 return Json(PredictionStatusCode.Value, """{"detail":"Selected fixture prediction was rejected."}""");
             }
 
+            if (request.RequestUri.AbsolutePath.EndsWith("/alternatives", StringComparison.Ordinal))
+            {
+                if (AlternativeStatusCode is not null)
+                {
+                    return Json(AlternativeStatusCode.Value, """{"detail":"Player has no injury or doubt news."}""");
+                }
+
+                using var selection = JsonDocument.Parse(body);
+                var chosen = selection.RootElement;
+                var set = selections.GetOrAdd(chosen.GetProperty("session_id").GetString()!, _ => []);
+                lock (set)
+                {
+                    if (chosen.GetProperty("included").GetBoolean()) set.Add(chosen.GetProperty("player_id").GetString()!);
+                    else set.Remove(chosen.GetProperty("player_id").GetString()!);
+                }
+
+                return Json(HttpStatusCode.OK, BuildLineup(
+                    chosen.GetProperty("match_id").GetString()!,
+                    chosen.GetProperty("club").GetString()!,
+                    chosen.GetProperty("mode").GetString()!,
+                    chosen.GetProperty("language").GetString()!,
+                    null,
+                    set));
+            }
+
             if (request.RequestUri.AbsolutePath.EndsWith("/predict_lineup", StringComparison.Ordinal) ||
                 request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal))
             {
@@ -1057,7 +1184,8 @@ public sealed class LineupUiTests
                     root.GetProperty("club").GetString()!,
                     root.GetProperty("mode").GetString()!,
                     root.GetProperty("language").GetString()!,
-                    playerId);
+                    playerId,
+                    selections.GetValueOrDefault(root.GetProperty("session_id").GetString()!) ?? []);
                 if (NewsOutcomeJson is not null && request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal))
                 {
                     var node = JsonNode.Parse(lineup)!.AsObject();
@@ -1081,7 +1209,7 @@ public sealed class LineupUiTests
             return Json(HttpStatusCode.NotFound, """{"detail":"Unknown endpoint"}""");
         }
 
-        private static string BuildLineup(string matchId, string club, string mode, string language, string? injuredPlayerId)
+        private static string BuildLineup(string matchId, string club, string mode, string language, string? injuredPlayerId, ISet<string> selected)
         {
             var players = StartingPlayers
                 .Where(player => player.Id != injuredPlayerId)
@@ -1107,8 +1235,26 @@ public sealed class LineupUiTests
                 ["DEF"] = Array.Empty<object>(),
                 ["GK"] = Array.Empty<object>()
             };
+            // Two non-starters have news; a suspended player is never offered. A selected one is listed under its position.
+            var candidates = new[]
+            {
+                ("cand-injured", "Pol Hart", 15, "DEF", "injury"),
+                ("cand-doubt", "Ewan Rook", 17, "FWD", "doubt")
+            };
+            foreach (var (id, name, number, position, kind) in candidates.Where(candidate => selected.Contains(candidate.Item1)))
+            {
+                var listed = Alternative(id, name, number, position, kind == "doubt" ? 0.2 : 0);
+                listed["status"] = kind == "doubt" ? "doubt" : "out";
+                alternatives[position] = ((IEnumerable<object>)alternatives[position]).Append(listed).ToArray();
+            }
+
             return JsonSerializer.Serialize(new Dictionary<string, object>
             {
+                ["candidates"] = candidates.Select(candidate => new Dictionary<string, object>
+                {
+                    ["id"] = candidate.Item1, ["name"] = candidate.Item2, ["number"] = candidate.Item3,
+                    ["position"] = candidate.Item4, ["kind"] = candidate.Item5, ["included"] = selected.Contains(candidate.Item1)
+                }).ToArray(),
                 ["match_id"] = matchId,
                 ["club"] = club,
                 ["formation"] = "4-3-3",
