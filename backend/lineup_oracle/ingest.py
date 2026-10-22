@@ -52,6 +52,11 @@ class Feed:
         self._log.append({"seq": self._seq, **entry})
         return self._seq
 
+    def post(self, match_id: str, club: str, texts: dict[str, str]) -> int:
+        """Add a visitor's line to the log for everyone. Changes no availability or prediction; returns its seq."""
+        with self.lock:
+            return self._append(kind="info", match_id=match_id, club=club, texts=texts, applied=False)
+
     def _reset(self) -> None:  # lock held
         self.generation += 1
         self._shared.clear()
@@ -120,8 +125,10 @@ class Feed:
         return xi, facts
 
     def restart(self) -> int:
-        """Reset to the baseline and deliver the first item now; returns the latest sequence number."""
-        with self.lock:
+        """Reset to the baseline, clear every session's personal news and alternatives, and deliver the first item now;
+        returns the latest sequence number. The automatic loop reset leaves personal news alone."""
+        with self.state.lock, self.lock:  # state before feed, the order team-news submits use
+            self.state.reset()
             self._reset()
             self._pos = 0
             self._reanchor = True
@@ -139,7 +146,7 @@ class Feed:
             if since is None:
                 return [project(e) for e in self._log], latest, False
             entries = [project(e) for e in self._log if e["seq"] > since]
-        changed = any(e["kind"] == "restart" or (e["applied"] and (e["match_id"], e["club"]) == (match_id, club)) for e in entries)
+        changed = any(e["kind"] == "restart" or (e["kind"] != "info" and e["applied"] and (e["match_id"], e["club"]) == (match_id, club)) for e in entries)
         return entries, latest, changed
 
     def run(self, stop, clock=time.monotonic) -> None:

@@ -71,6 +71,46 @@ def parser_accuracy(state: State, pipeline: Pipeline) -> dict:
     return {"accuracy": right / len(events), "events": len(events), "failures": failures}
 
 
+def free_text_cases(state: State) -> list[tuple]:
+    """Fixed free-text lines for the first two clubs: (club, text, expected, lists_persons). `expected` is
+    ("applied", player id, kind), ("posted", player id or None) or ("rejected",). `lists_persons` marks the lines that
+    only come out right if the parser lists the persons it reads (outsider, player plus club, club only)."""
+    home, away = (state.roster.clubs[name] for name in sorted(state.roster.clubs)[:2])
+    a, b, c = home.players[3], home.players[5], away.players[2]
+    return [
+        (home.name, f"{a.name} is back from injury", ("applied", a.id, "recovered"), False),
+        (home.name, f"{a.name} has served his ban", ("applied", a.id, "cleared"), False),
+        (home.name, f"{b.name} is fit after a late test", ("applied", b.id, "fit"), False),
+        (home.name, f"{c.name} is out injured", ("applied", c.id, "injury"), False),
+        (home.name, f"{home.name} fans sing all day", ("posted", None), True),
+        (home.name, f"{c.name} meets {away.name} fans", ("posted", c.id), True),
+        (home.name, f"Sam Buyer wants to buy {home.name}", ("rejected",), True),
+    ]
+
+
+def free_text_accuracy(state: State, pipeline: Pipeline) -> dict:
+    """Share of the fixed free-text lines read to the expected outcome, and the same for the person-listing lines alone."""
+    if not pipeline.enabled:
+        return {"skipped": "model not configured (set LINEUP_LLM_ENDPOINT and LINEUP_LLM_DEPLOYMENT)"}
+    clubs, right, listing_right, listing, failures = state.roster.clubs, 0, 0, 0, []
+    cases = free_text_cases(state)
+    for club_name, text, expected, lists_persons in cases:
+        club = clubs[club_name]
+        opponent = next(c for n, c in sorted(clubs.items()) if n != club_name)
+        try:
+            read = pipeline.read(text, club, clubs, opponent)
+            got = ("applied", read.player.id, read.kind) if read.outcome == "applied" else ("posted", read.player.id if read.player else None)
+        except NewsRejected as err:
+            got = ("rejected",)
+        ok = got == expected
+        right += ok
+        listing += lists_persons
+        listing_right += ok and lists_persons
+        if not ok:
+            failures.append((text, expected, got))
+    return {"accuracy": right / len(cases), "cases": len(cases), "listing_accuracy": listing_right / listing, "listing_cases": listing, "failures": failures}
+
+
 def _club_match_facts(state: State):
     """(club, facts) for every club-match from matchday 3 on, picked with the match's recorded team news."""
     news = _applied_news(state)
@@ -142,6 +182,12 @@ def main() -> None:
             print("Parser: skipped,", result["skipped"])
         else:
             print(f"Parser: {result['accuracy']:.0%} of {result['events']} news lines parsed to the right player and kind")
+            for text, expected, got in result["failures"]:
+                print(f"  FAIL {text!r}: expected {expected}, got {got}")
+        result = free_text_accuracy(state, Pipeline.from_env())
+        if "skipped" not in result:
+            print(f"Free text: {result['accuracy']:.0%} of {result['cases']} lines read to the expected outcome;"
+                  f" person-listing lines {result['listing_accuracy']:.0%} of {result['listing_cases']}")
             for text, expected, got in result["failures"]:
                 print(f"  FAIL {text!r}: expected {expected}, got {got}")
 

@@ -249,6 +249,32 @@ def test_entries_keep_all_texts_and_poll_projects_one_language(feed, pipe):
     assert len(pipe.calls) == 2  # polling interpreted nothing
 
 
+def test_post_appends_an_info_entry_for_every_language_and_changes_nothing(feed):
+    key = _first_key(feed)
+    feed.step()
+    shared, predictions = dict(feed._shared), dict(feed._predictions)
+    seq = feed.post(*key, {"en": "Hello", "es": "Hola", "zh-Hant": "你好"})
+    assert seq == feed.latest_seq == 2
+    assert (feed._shared, feed._predictions) == (shared, predictions)
+    for lang, text in {"en": "Hello", "es": "Hola", "zh-Hant": "你好"}.items():
+        entry = feed.poll(1, *key, language=lang)[0][0]
+        assert (entry["kind"], entry["text"], entry["applied"]) == ("info", text, False)
+
+
+def test_info_entry_never_makes_the_poll_report_a_change(feed):
+    key = _first_key(feed)
+    feed.post(*key, {"en": "a", "es": "b", "zh-Hant": "c"})
+    items, _, changed = feed.poll(0, *key)
+    assert len(items) == 1 and changed is False
+
+
+def test_posted_line_survives_a_restart(feed):
+    key = _first_key(feed)
+    feed.post(*key, {"en": "a", "es": "b", "zh-Hant": "c"})
+    feed.restart()
+    assert [e["kind"] for e in _entries(feed)] == ["info", "restart", "news"]
+
+
 def test_merge_keeps_the_kind_through_precedence():
     from lineup_oracle.ingest import merge
 
@@ -268,3 +294,44 @@ def test_feed_keeps_injury_doubt_and_suspension_apart(feed, pipe):
         pipe.override[item.payload["text"]] = (pipe.answers[item.payload["text"]][0], kind)
         feed.restart()
         assert feed.shared_availability(*key)[pipe.answers[item.payload["text"]][0]][0] == kind
+
+
+def _personal(state, key, seq=0):
+    state.availability[("s", *key)] = {"p": ("injury", seq)}
+    state.selections[("s", *key)] = ("p",)
+
+
+def test_manual_restart_clears_every_sessions_news_and_alternatives(feed, state):
+    key = _first_key(feed)
+    _personal(state, key)
+    state.availability[("other", *key)] = {"q": ("doubt", 0)}
+    feed.restart()
+    assert state.availability == {} and state.selections == {}
+    assert [e["kind"] for e in _entries(feed)[-2:]] == ["restart", "news"]  # first item still delivered at once
+
+
+def test_automatic_reset_keeps_personal_news(feed, state):
+    key = _first_key(feed)
+    _personal(state, key)
+    for _ in range(len(feed.items) + 1):  # every item, then the reset
+        feed.step()
+    assert any(e["kind"] == "restart" for e in _entries(feed))
+    assert state.availability and state.selections
+
+
+def test_news_submitted_after_a_restart_is_kept(feed, state):
+    key = _first_key(feed)
+    _personal(state, key)
+    feed.restart()
+    _personal(state, key)
+    assert ("s", *key) in state.availability
+
+
+def test_restart_waits_for_the_state_lock(feed, state):
+    done = threading.Event()
+    with state.lock:
+        t = threading.Thread(target=lambda: (feed.restart(), done.set()))
+        t.start()
+        assert not done.wait(0.2)  # held back by the lock a news submit would hold
+    assert done.wait(5)
+    t.join()

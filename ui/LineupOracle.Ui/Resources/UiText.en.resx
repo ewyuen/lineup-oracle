@@ -21,8 +21,8 @@
   <data name="Favourite" xml:space="preserve"><value>Favourite</value></data>
   <data name="MarkFavourite" xml:space="preserve"><value>Mark as favourite</value></data>
   <data name="TeamNews" xml:space="preserve"><value>Team news</value></data>
-  <data name="TeamNewsHelp" xml:space="preserve"><value>Report a player injury, suspension, doubt, or enter team news.</value></data>
-  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>Enter team news</value></data>
+  <data name="TeamNewsHelp" xml:space="preserve"><value>Report a player injury, return or doubt, or post a short team news line (up to 100 characters).</value></data>
+  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>Enter team news (up to 100 characters)</value></data>
   <data name="Submit" xml:space="preserve"><value>Submit</value></data>
   <data name="Retry" xml:space="preserve"><value>Retry</value></data>
   <data name="Updating" xml:space="preserve"><value>Updating...</value></data>
@@ -52,6 +52,11 @@
   <data name="InjuryPast" xml:space="preserve"><value>injured</value></data>
   <data name="SuspensionPast" xml:space="preserve"><value>suspended</value></data>
   <data name="DoubtPast" xml:space="preserve"><value>marked doubtful</value></data>
+  <data name="RecoveredPast" xml:space="preserve"><value>recovered</value></data>
+  <data name="ClearedPast" xml:space="preserve"><value>suspension served</value></data>
+  <data name="FitPast" xml:space="preserve"><value>declared fit</value></data>
+  <data name="MarkedUpdatedClub" xml:space="preserve"><value>{0} ({2}) marked {1}; XI updated</value></data>
+  <data name="NewsPosted" xml:space="preserve"><value>Posted to the news feed</value></data>
   <data name="NoFixtures" xml:space="preserve"><value>No fixtures are available.</value></data>
   <data name="NoLineup" xml:space="preserve"><value>Select a fixture and club to see a lineup.</value></data>
   <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>Probabilities and explanation source shown.</value></data>

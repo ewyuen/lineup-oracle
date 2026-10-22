@@ -7,7 +7,7 @@ from .optimizer import ALTERNATIVES, POSITIONS, pick_xi
 from .scoring import RECENT_MATCHES, p_start_scores, recent_xis
 from .state import State
 
-STATUS_OF_KIND = {"injury": "out", "suspension": "out", "doubt": "doubt"}
+STATUS_OF_KIND = {"injury": "out", "suspension": "out", "doubt": "doubt", "recovered": "available", "cleared": "available", "fit": "available"}
 SELECTABLE_KINDS = ("injury", "doubt")  # a suspended player cannot be put in the alternatives
 
 

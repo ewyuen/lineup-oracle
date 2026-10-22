@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lineup_oracle.api import create_app
-from lineup_oracle.pipeline import Pipeline  # Pipeline() has no model, whatever LINEUP_LLM_* is set to
+from lineup_oracle.pipeline import NewsRead, NewsRejected, Pipeline  # Pipeline() has no model, whatever LINEUP_LLM_* is set to
 from lineup_oracle.events import generate_fixtures, generate_match_events, write_events
 from lineup_oracle.explain import explain
 from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster, write_roster
@@ -383,3 +383,156 @@ def test_state_accepts_current_format_events(tmp_path):
 def test_state_rejects_stale_team_news(tmp_path, break_it):
     with pytest.raises(ValueError, match="regenerate"):
         State.load(_write_events(tmp_path, break_it))
+
+
+# --- free-text news outcomes ------------------------------------------
+
+
+class ReadPipeline(Pipeline):
+    """No model: `read` returns what `result` says (a NewsRead, or an Exception to raise)."""
+
+    def __init__(self, state: State) -> None:
+        super().__init__()
+        self.state, self.result = state, None
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    def read(self, text, club, clubs, opponent):
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+TEXTS = {"en": "English", "es": "Español", "zh-Hant": "中文"}
+
+
+class Clock:
+    now = 100.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def text_client(state):
+    pipeline, clock = ReadPipeline(state), Clock()
+    client = TestClient(create_app(state, pipeline, clock))
+    match = _match(client)
+    return client, pipeline, clock, match
+
+
+def _text(client, match, text="x", club=None, **extra):
+    return client.post("/team_news", json={"match_id": match["match_id"], "club": club or match["home_club"], "text": text, **extra})
+
+
+def _applied(state, match, club, kind, index=3):
+    player = state.roster.clubs[club].players[index]
+    return NewsRead("applied", club, player, kind)
+
+
+def _log(client):
+    return client.get("/news", params={"since": 0}).json()["items"]
+
+
+def test_text_length_limit(text_client):
+    client, pipeline, _, match = text_client
+    pipeline.result = NewsRead("posted", match["home_club"], None, None, TEXTS)
+    assert _text(client, match, "x" * 100).status_code == 200
+    long = _text(client, match, "x" * 101, session_id="other")
+    assert long.status_code == 422 and len(_log(client)) == 1
+
+
+def test_applied_text_returns_news_and_is_private_to_the_session(text_client, state):
+    client, pipeline, _, match = text_client
+    club = match["home_club"]
+    read = _applied(state, match, club, "injury", index=0)
+    pipeline.result = read
+    before = _predict(client, match, session_id="me").json()
+    victim = before["players"][0]["id"]
+    pipeline.result = NewsRead("applied", club, next(p for p in state.roster.clubs[club].players if p.id == victim), "injury")
+    got = _text(client, match, session_id="me").json()
+    assert victim not in {p["id"] for p in got["players"]}
+    assert got["news"] == {"outcome": "applied", "club": club, "player_name": pipeline.result.player.name, "kind": "injury"}
+    assert victim in {p["id"] for p in _predict(client, match, session_id="other").json()["players"]}
+    assert _log(client) == []
+
+
+def test_status_for_the_other_club_lands_there_and_returns_the_requested_lineup(text_client, state):
+    client, pipeline, _, match = text_client
+    home, away = match["home_club"], match["away_club"]
+    victim = _predict(client, match, club=away, session_id="me").json()["players"][0]["id"]
+    pipeline.result = NewsRead("applied", away, next(p for p in state.roster.clubs[away].players if p.id == victim), "injury")
+    got = _text(client, match, club=home, session_id="me").json()
+    assert got["club"] == home and got["news"]["club"] == away
+    assert got["players"] == _predict(client, match, club=home, session_id="me").json()["players"]
+    assert victim not in {p["id"] for p in _predict(client, match, club=away, session_id="me").json()["players"]}
+
+
+def test_recovery_overrides_the_feed_out_for_one_session_only(text_client, state):
+    client, pipeline, _, match = text_client
+    club, key = match["home_club"], (match["match_id"], match["home_club"])
+    feed = client.app.state.feed
+    victim = _predict(client, match).json()["players"][0]["id"]
+    with feed.lock:
+        feed._seq += 1
+        feed._shared[key] = {victim: ("injury", feed._seq)}
+        feed._predictions.pop(key, None)
+    assert victim not in {p["id"] for p in _predict(client, match, session_id="b").json()["players"]}
+    player = next(p for p in state.roster.clubs[club].players if p.id == victim)
+    pipeline.result = NewsRead("applied", club, player, "recovered")
+    got = _text(client, match, session_id="a").json()
+    assert victim in {p["id"] for p in got["players"]}
+    assert victim not in {p["id"] for p in _predict(client, match, session_id="b").json()["players"]}
+
+
+def test_posted_text_returns_the_unchanged_lineup_and_reaches_other_pollers(text_client):
+    client, pipeline, _, match = text_client
+    before = _predict(client, match, session_id="me").json()
+    pipeline.result = NewsRead("posted", match["home_club"], None, None, TEXTS)
+    got = _text(client, match, session_id="me").json()
+    assert got["news"] == {"outcome": "posted", "club": match["home_club"], "player_name": None, "kind": None}
+    assert {**got, "news": None} == before
+    for lang, text in TEXTS.items():
+        body = client.get("/news", params={"since": 0, "language": lang, "match_id": match["match_id"], "club": match["home_club"]}).json()
+        assert [(e["kind"], e["text"]) for e in body["items"]] == [("info", text)] and body["changed"] is False
+
+
+def test_rejected_text_changes_nothing(text_client):
+    client, pipeline, _, match = text_client
+    before = _predict(client, match).json()
+    pipeline.result = NewsRejected("Player not found: Sam Buyer.")
+    response = _text(client, match)
+    assert response.status_code == 422 and response.json()["detail"].startswith("Player not found")
+    assert _predict(client, match).json() == before and _log(client) == []
+
+
+def test_second_post_is_limited_per_session(text_client):
+    client, pipeline, clock, match = text_client
+    pipeline.result = NewsRead("posted", match["home_club"], None, None, TEXTS)
+    assert _text(client, match, session_id="a").status_code == 200
+    clock.now += 3
+    limited = _text(client, match, session_id="a")
+    assert limited.status_code == 429 and len(_log(client)) == 1  # a 429 leaves the log unchanged
+    assert _text(client, match, session_id="b").status_code == 200  # another session is not limited
+    clock.now += 8  # 11 s after a's first post
+    assert _text(client, match, session_id="a").status_code == 200 and len(_log(client)) == 3
+
+
+def test_status_lines_and_rejections_do_not_count_toward_the_post_limit(text_client, state):
+    client, pipeline, _, match = text_client
+    pipeline.result = NewsRead("posted", match["home_club"], None, None, TEXTS)
+    assert _text(client, match, session_id="a").status_code == 200
+    pipeline.result = _applied(state, match, match["home_club"], "doubt")
+    assert _text(client, match, session_id="a").status_code == 200
+    pipeline.result = NewsRejected("no")
+    assert _text(client, match, session_id="a").status_code == 422
+    pipeline.result = NewsRead("posted", match["home_club"], None, None, TEXTS)
+    assert _text(client, match, session_id="a").status_code == 429
+
+
+def test_structured_path_has_no_news_object(client):
+    match = _match(client)
+    starter = _predict(client, match).json()["players"][3]["id"]
+    assert _news(client, match, starter, "injury").json()["news"] is None

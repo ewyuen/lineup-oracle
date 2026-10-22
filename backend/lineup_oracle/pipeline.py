@@ -7,23 +7,38 @@ import re
 import threading
 from collections import OrderedDict
 from collections.abc import Awaitable
+from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from .agents import Explanations, ParsedNews, explainer_agent, parser_agent
+from .agents import Explanations, ParsedNews, Person, explainer_agent, parser_agent
 from .llm import DEFAULT_TIMEOUT, LlmSettings, build_client
-from .roster import Club
+from .roster import Club, Player
 
 T = TypeVar("T")
 UNAVAILABLE = "Free-text team news parsing is unavailable right now; send a player id and a kind instead."
 UNREADABLE = "The news could not be read as a player and a kind (injury, suspension or doubt); send a player id and a kind instead."
 MAX_EXPLANATION_CHARS = 200
+MAX_POST_CHARS = 200
+POST_LANGUAGES = ("en", "es", "zh-Hant")
 CACHE_SIZE = 256
 
 
 class NewsRejected(Exception):
     """The text was not turned into news; the message is shown to the user and nothing changes."""
+
+
+@dataclass(frozen=True)
+class NewsRead:
+    """What a free-text line means: a status for `player` (outcome "applied", `club` is the player's club) or a line
+    to post to everyone (outcome "posted", `texts` has the three languages)."""
+
+    outcome: str
+    club: str
+    player: Player | None = None
+    kind: str | None = None
+    texts: dict[str, str] | None = None
 
 
 def _parse_json(model: type[T], text: str) -> T:
@@ -91,6 +106,48 @@ class Pipeline:
         if parsed.player_id not in {p.id for p in club.players}:
             raise NewsRejected(f"The news does not name a player of {club.name}.")
         return parsed.player_id, parsed.kind
+
+    def read(self, text: str, club: Club, clubs: dict[str, Club], opponent: Club) -> NewsRead:
+        """Free text to a status for a player of this match, or a line to post, or NewsRejected.
+
+        `clubs` are all the clubs; persons are resolved here in code (selected club, opponent, any club), never by the model."""
+        if not self.enabled:
+            raise NewsRejected(UNAVAILABLE)
+        roster = [{"id": p.id, "name": p.name, "number": p.number, "position": p.position} for p in club.players]
+        try:
+            parsed = self._ask(self._parser, {"club": club.name, "roster": roster, "text": text}, ParsedNews)
+        except (ValidationError, ValueError):
+            raise NewsRejected(UNREADABLE) from None
+        except Exception:  # model error or timeout
+            raise NewsRejected(UNAVAILABLE) from None
+        mine = {p.id: p for p in club.players}
+        by_name = {}
+        for group in (club, opponent, *clubs.values()):  # first club listed wins a duplicate name
+            for p in group.players:
+                by_name.setdefault(p.name.casefold(), p)
+        found: dict[str, Player] = {}
+        persons = parsed.persons or ([Person(name=mine[parsed.player_id].name, player_id=parsed.player_id)] if parsed.player_id in mine else [])
+        for person in persons:
+            player = mine.get(person.player_id) if person.player_id else None
+            player = player or by_name.get(" ".join(person.name.split()).casefold())
+            if player is None:
+                raise NewsRejected(f"Player not found: {person.name.strip() or 'unnamed person'}. Name a player of the clubs.")
+            found[player.id] = player
+        if len(found) > 1:
+            raise NewsRejected("One player per line, please.")
+        player = next(iter(found.values()), None)
+        if player is not None and parsed.kind is not None:
+            if player.club not in (club.name, opponent.name):
+                raise NewsRejected(f"{player.name} plays for {player.club}, which is not in this match.")
+            return NewsRead("applied", player.club, player, parsed.kind)
+        if player is None:
+            named = parsed.club and next((c for c in clubs if c.casefold() == parsed.club.strip().casefold()), None)
+            if not named:
+                raise NewsRejected("The news names no player and no team; name a player or a team.")
+        texts = {lang: (parsed.translations or {}).get(lang, "").strip() for lang in POST_LANGUAGES}
+        if any(not t or len(t) > MAX_POST_CHARS for t in texts.values()):
+            raise NewsRejected(UNREADABLE)
+        return NewsRead("posted", club.name, player, None, texts)
 
     def explain(self, facts: list[dict[str, Any]], mode: str, language: str) -> dict[str, str] | None:
         """Explanation text per player id, or None (use the templates) if the model is off or its answer is unusable."""
