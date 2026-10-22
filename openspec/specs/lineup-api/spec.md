@@ -89,7 +89,7 @@ The service SHALL accept a structured team-news submission with a match id, club
 - **THEN** the player is out
 
 ### Requirement: In-memory state with no database
-The service SHALL load the roster and events at startup, from `data/roster.json` and `data/events.jsonl` when present, otherwise generating them in memory from seed 42. Submitted availability SHALL live in memory and be lost on restart.
+The service SHALL load the roster and events at startup, from `data/roster.json` and `data/events.jsonl` when present, otherwise generating them in memory from seed 42. A stored events file whose team-news items lack a non-empty `payload.text` or a non-empty Spanish or Traditional Chinese translation SHALL be rejected with an error that says to regenerate the events. Submitted availability SHALL live in memory and be lost on restart.
 
 #### Scenario: Missing events file
 - **WHEN** the service starts and `data/events.jsonl` does not exist
@@ -98,6 +98,10 @@ The service SHALL load the roster and events at startup, from `data/roster.json`
 #### Scenario: Deterministic prediction
 - **WHEN** the same prediction is requested twice with no news in between
 - **THEN** the two responses are identical
+
+#### Scenario: Outdated or invalid localized event data
+- **WHEN** the service loads an events file whose team-news item lacks `payload.text` or has a missing or empty Spanish or Traditional Chinese translation
+- **THEN** startup fails with an error instructing the operator to regenerate the events file
 
 ### Requirement: Free-text team news
 The service SHALL accept a team-news submission that carries `text` and no player and kind, parse it (see the team-news-parsing capability), and answer with the updated predicted lineup. A submission that carries a player and a kind SHALL keep using the structured path.
@@ -111,7 +115,7 @@ The service SHALL accept a team-news submission that carries `text` and no playe
 - **THEN** the response is 422 with a message and the lineup and stored news are unchanged
 
 ### Requirement: Poll the news
-The service SHALL return the recent news log for a caller that sends the last sequence number it saw and, optionally, a match and club: the entries, the latest sequence number, and whether anything new concerns that match and club. A poll SHALL only read the log and SHALL NOT process any item. An entry that is a restart marker SHALL count as concerning every match and club. Without a last-seen number the response SHALL carry the recent entries and report nothing changed.
+The service SHALL return the recent news log for a caller that sends the last sequence number it saw and, optionally, a match and club. The caller MAY send a language (`en`, `es` or `zh-Hant`); when omitted, the service SHALL use `en`, and an unsupported value SHALL be rejected with 422. The response SHALL contain entries whose `text` field holds only the selected language's text, the latest sequence number, and whether anything new concerns that match and club. A poll SHALL only read the log and SHALL NOT process any item. An entry that is a restart marker SHALL count as concerning every match and club. Without a last-seen number the response SHALL carry the recent entries and report nothing changed.
 
 #### Scenario: New news for the displayed club
 - **WHEN** an applied item for the caller's match and club was delivered after its last-seen number
@@ -132,6 +136,18 @@ The service SHALL return the recent news log for a caller that sends the last se
 #### Scenario: First poll
 - **WHEN** a caller polls without a last-seen number
 - **THEN** it receives the recent entries and nothing is reported changed
+
+#### Scenario: Selected language
+- **WHEN** a caller polls with `language=es` or `language=zh-Hant`
+- **THEN** each news entry contains only its Spanish or Traditional Chinese text, respectively, while sequence and change fields retain their usual meaning
+
+#### Scenario: Default language
+- **WHEN** a caller omits the language
+- **THEN** each news entry contains English text
+
+#### Scenario: Unsupported language
+- **WHEN** a caller supplies an unsupported language
+- **THEN** the service rejects the poll with 422
 
 ### Requirement: Restart the feed
 The service SHALL let any caller restart the shared feed, which resets and begins at the first item as the feed's restart requirement says, and SHALL answer with the latest sequence number.

@@ -52,7 +52,7 @@ class Feed:
         self.generation += 1
         self._shared.clear()
         self._predictions.clear()
-        self._append(kind="restart", match_id=None, club=None, text="", applied=True)
+        self._append(kind="restart", match_id=None, club=None, texts={}, applied=True)
 
     def step(self) -> None:
         """Deliver the next item; after the last one, reset instead (the lap starts again on the next call)."""
@@ -81,7 +81,7 @@ class Feed:
         with self.lock:
             if generation != self.generation:
                 return  # a reset happened meanwhile; the result belongs to the old lap
-            entry = {"kind": "news", "match_id": item.match_id, "club": item.club, "text": text}
+            entry = {"kind": "news", "match_id": item.match_id, "club": item.club, "texts": {"en": text, **item.payload["translations"]}}
             if outcome is None:
                 self._append(**entry, applied=False)
                 return
@@ -117,13 +117,17 @@ class Feed:
         self.step()
         return self.latest_seq
 
-    def poll(self, since: int | None, match_id: str | None = None, club: str | None = None) -> tuple[list[dict], int, bool]:
-        """(entries, latest seq, whether a new entry changes this match and club). Reads only."""
+    def poll(self, since: int | None, match_id: str | None = None, club: str | None = None, language: str = "en") -> tuple[list[dict], int, bool]:
+        """(entries with only `language`'s text, latest seq, whether a new entry changes this match and club). Reads only."""
+
+        def project(e: dict) -> dict:
+            return {**{k: v for k, v in e.items() if k != "texts"}, "text": e["texts"].get(language, "")}
+
         with self.lock:
             latest = self._seq
             if since is None:
-                return list(self._log), latest, False
-            entries = [e for e in self._log if e["seq"] > since]
+                return [project(e) for e in self._log], latest, False
+            entries = [project(e) for e in self._log if e["seq"] > since]
         changed = any(e["kind"] == "restart" or (e["applied"] and (e["match_id"], e["club"]) == (match_id, club)) for e in entries)
         return entries, latest, changed
 

@@ -192,8 +192,8 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
             return _render(app.state.pipeline, req, xi, facts)  # model call, after the lock
 
     @app.get("/news")
-    def get_news(since: int | None = None, match_id: str | None = None, club: str | None = None) -> dict:
-        items, latest, changed = app.state.feed.poll(since, match_id, club)
+    def get_news(since: int | None = None, match_id: str | None = None, club: str | None = None, language: Language = "en") -> dict:
+        items, latest, changed = app.state.feed.poll(since, match_id, club, language)
         return {"items": items, "latest_seq": latest, "changed": changed}
 
     @app.post("/news/restart")

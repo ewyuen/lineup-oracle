@@ -10,6 +10,7 @@ from .roster import Player, Roster, generate_synthetic_roster, load_roster
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 SEED = 42
+TRANSLATED_LANGUAGES = ("es", "zh-Hant")
 
 
 def _load_events(path: Path) -> list[Event]:
@@ -33,6 +34,12 @@ class State:
     def __post_init__(self) -> None:
         self.metadata = {e.match_id: e for e in self.events if e.type == "match_metadata"}
         self.players = {p.id: p for club in self.roster.clubs.values() for p in club.players}
+        for e in self.events:
+            if e.type != "team_news":
+                continue
+            translations = e.payload.get("translations")
+            if not e.payload.get("text") or not isinstance(translations, dict) or not all(translations.get(lang) for lang in TRANSLATED_LANGUAGES):
+                raise ValueError(f"Team news {e.id} lacks its text or a Spanish or Traditional Chinese translation; regenerate the events file")
         for match_id, e in self.metadata.items():
             xi = e.payload.get("home_xi", []) + e.payload.get("away_xi", [])
             if "matchday" not in e.payload or not set(xi) <= self.players.keys():

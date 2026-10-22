@@ -9,6 +9,7 @@
         <input type="hidden" id="news-seq" name="since" value="@(Model.NewsSeq == 0 ? "" : Model.NewsSeq.ToString())" />
         <input type="hidden" name="matchId" value="@Model.SelectedMatchId" />
         <input type="hidden" name="club" value="@Model.SelectedClub" />
+        <input type="hidden" name="language" value="@Model.Language" />
         <span id="news-poll-indicator" hidden></span>
     </form>
     <div id="news-track" class="news-track" role="log" aria-live="polite" aria-label="@T["NewsTicker"]">

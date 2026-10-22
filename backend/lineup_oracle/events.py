@@ -87,6 +87,43 @@ TEAM_NEWS_TEMPLATES: dict[str, list[str]] = {
         "{club} say {player} trained lightly and remains in doubt.",
     ],
 }
+# Same kinds and order as the English templates, so one index picks the matching text in every language.
+LOCALIZED_TEAM_NEWS_TEMPLATES: dict[str, dict[str, list[str]]] = {
+    "es": {
+        "injury": [
+            "{club} tiene dudas por una lesión de {player} de cara al próximo partido.",
+            "{player} está de baja por un golpe, confirma {club}.",
+            "El cuerpo médico de {club} ha descartado a {player} por ahora.",
+        ],
+        "suspension": [
+            "{player} cumple sanción con {club} este fin de semana.",
+            "{club} no contará con {player} por una sanción de tarjetas.",
+            "{player} se pierde el próximo partido de {club} por sanción.",
+        ],
+        "doubt": [
+            "{club} vigila a {player} tras una revisión física de última hora.",
+            "{player} es duda física para {club} antes del inicio del partido.",
+            "{club} dice que {player} entrenó a baja intensidad y sigue en duda.",
+        ],
+    },
+    "zh-Hant": {
+        "injury": [
+            "{club}擔心{player}受傷，下一場比賽出賽成疑。",
+            "{club}證實，{player}因撞傷無法出賽。",
+            "{club}的醫療團隊已確認{player}暫時無法上陣。",
+        ],
+        "suspension": [
+            "{player}本週末將為{club}停賽。",
+            "{player}因累積黃牌被禁賽，{club}將缺少這名球員。",
+            "{player}因停賽將缺席{club}的下一場比賽。",
+        ],
+        "doubt": [
+            "{club}在最後一次體能檢查後，正在密切觀察{player}的狀況。",
+            "{player}在開賽前體能狀況成疑，{club}正在評估。",
+            "{club}表示{player}只進行了輕度訓練，出賽仍存疑。",
+        ],
+    },
+}
 TEAM_NEWS_OFFSETS: list[tuple[float, str]] = [(48.0, "injury"), (24.0, "suspension"), (1.0, "doubt")]
 UNAVAILABLE_KINDS = {"injury", "suspension"}
 
@@ -103,7 +140,9 @@ def _append_club_team_news(events: list[Event], club: Club, match_id: str, rng: 
             return kind not in UNAVAILABLE_KINDS or have - 1 >= need[c.position]
 
         player = candidates.pop(next(i for i, c in enumerate(candidates) if keeps_xi_possible(c)))
-        text = rng.choice(TEAM_NEWS_TEMPLATES[kind]).format(club=club.name, player=player.name)
+        index = rng.randrange(len(TEAM_NEWS_TEMPLATES[kind]))  # one draw, as rng.choice made before
+        text = TEAM_NEWS_TEMPLATES[kind][index].format(club=club.name, player=player.name)
+        translations = {lang: templates[kind][index].format(club=club.name, player=player.name) for lang, templates in LOCALIZED_TEAM_NEWS_TEMPLATES.items()}
         events.append(
             Event(
                 id=_new_id(f"{club.name}-{match_id}-news", len(events) + 1),
@@ -112,7 +151,7 @@ def _append_club_team_news(events: list[Event], club: Club, match_id: str, rng: 
                 minute=-offset,
                 club=club.name,
                 player=None,
-                payload={"kind": kind, "text": text, "player_name": player.name},
+                payload={"kind": kind, "text": text, "translations": translations, "player_name": player.name},
                 simulated=True,
             )
         )
