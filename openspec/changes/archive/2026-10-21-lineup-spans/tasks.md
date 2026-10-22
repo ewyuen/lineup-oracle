@@ -24,5 +24,5 @@
 ## 5. Verify and approve
 
 - [x] 5.1 Run the full backend suite (`python -m pytest -q` in `backend/`) and `openspec validate lineup-spans`. Verify: both pass.
-- [ ] 5.2 Deploy the branch to Azure (deploy-latest skill), make one prediction and one team-news submit through the UI, then in Application Insights confirm a `lineup.predict` and a `lineup.team_news` row in `dependencies` (type `InProc`) with `club` and `llm_used` in `customDimensions`, under the same operation as the UI request. Allow a few minutes for ingestion. Verify: both rows found, or report that they were not.
-- [ ] 5.3 Human approval gate: summarize the results and stop for the user's approval. After approval, run the OpenSpec archive, then open a PR and merge it.
+- [ ] 5.2 (not run before approval; check after the next deploy) Deploy the branch to Azure (deploy-latest skill), make one prediction and one team-news submit through the UI, then in Application Insights confirm a `lineup.predict` and a `lineup.team_news` row in `dependencies` (type `InProc`) with `club` and `llm_used` in `customDimensions`, under the same operation as the UI request. Allow a few minutes for ingestion. Verify: both rows found, or report that they were not.
+- [x] 5.3 Human approval gate: summarize the results and stop for the user's approval. After approval, run the OpenSpec archive, then open a PR and merge it.
