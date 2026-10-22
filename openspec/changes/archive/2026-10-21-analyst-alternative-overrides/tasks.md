@@ -22,4 +22,4 @@
 
 - [x] 5.1 Update `ARCHITECTURE.md` with the `/alternatives` action, the `status` and `candidates` response fields, session-scoped behavior, the kind distinction, and the two-alternative total cap with selected players displacing the lowest-ranked current alternative
 - [x] 5.2 Run the full backend suite with `python -m pytest -q` from `backend/` and the full UI suite with `dotnet test ui/LineupOracle.sln`; confirm both pass
-- [ ] 5.3 Stop for human approval after implementation and tests pass; only after explicit approval, archive the OpenSpec change, open a PR to `main`, and merge it
+- [x] 5.3 Stop for human approval after implementation and tests pass; only after explicit approval, archive the OpenSpec change, open a PR to `main`, and merge it
