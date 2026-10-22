@@ -37,6 +37,10 @@ public sealed class IndexModel(
     public long NewsSeq { get; private set; }
     public bool RefreshNewsBar { get; private set; }
     public int PollSeconds => configuration.GetValue("News:PollSeconds", 10);
+    public bool HistoryEnabled => configuration.GetValue("PlayerHistory:Enabled", false);
+    public string HistoryQuestion { get; private set; } = "";
+    public PlayerHistoryDto? HistoryResult { get; private set; }
+    public string? HistoryError { get; private set; }
     public bool IsHtmx => string.Equals(Request.Headers["HX-Request"], "true", StringComparison.OrdinalIgnoreCase);
 
     public async Task OnGetAsync(string? matchId, string? club, string? mode, CancellationToken cancellationToken)
@@ -178,6 +182,19 @@ public sealed class IndexModel(
         Response.Headers["HX-Reswap"] = "outerHTML";
         Response.Headers["HX-Trigger"] = "lineup-changed";
         return Partial("_NewsBar", this);
+    }
+
+    public async Task<IActionResult> OnPostHistoryAsync(string? question, CancellationToken cancellationToken)
+    {
+        if (!HistoryEnabled) return NotFound();
+        question = question?.Trim();
+        if (string.IsNullOrEmpty(question)) return Content("", "text/html");
+
+        HistoryQuestion = question;
+        var result = await api.AskPlayerHistoryAsync(question, cancellationToken);
+        if (result.IsSuccess) HistoryResult = result.Value;
+        else HistoryError = result.IsUnavailable ? text["ServiceUnavailable"].Value : result.Error;
+        return Partial("_HistoryExchange", this);
     }
 
     public async Task<IActionResult> OnPostNewsAsync(

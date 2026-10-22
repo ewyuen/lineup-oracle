@@ -1,0 +1,18 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+@* The id carries the language: hx-preserve keeps the transcript across #workspace swaps, a language change swaps #app-shell and gets a fresh panel. *@
+<section id="history-panel-@Model.Language" class="panel history-panel" hx-preserve>
+    <h2>@T["HistoryTitle"]</h2>
+    <p class="muted">@T["HistoryHelp"]</p>
+    <div id="history-log" class="history-log" aria-live="polite"></div>
+    <form method="post" asp-page="/Index" asp-page-handler="History" class="free-text-form"
+          hx-post="/?handler=History" hx-target="#history-log" hx-swap="innerHTML"
+          hx-disabled-elt="find button" hx-on::after-request="if (event.detail.successful) this.reset()">
+        @Html.AntiForgeryToken()
+        <label for="historyQuestion">@T["HistoryTitle"]</label>
+        <textarea id="historyQuestion" name="question" rows="2" maxlength="300" placeholder="@T["HistoryPlaceholder"]" required></textarea>
+        <button class="button button-primary" type="submit">@T["HistoryAsk"]</button>
+    </form>
+</section>
