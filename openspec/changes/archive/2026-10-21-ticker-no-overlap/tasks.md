@@ -18,9 +18,9 @@
 ## 4. Docs and verification
 
 - [x] 4.1 Update the ticker paragraph in ARCHITECTURE.md (entries enter through a client-side queue at one constant speed; no per-entry CSS delay; cap of 5); verify the paragraph no longer mentions per-entry delays
-- [ ] 4.2 Manual browser check with the UI running (`/dev-start`): switch to Spanish and Traditional Chinese, press Restart feed, change language and club after a restart, open the page late; verify items never overlap, the ticker keeps working after each swap, a long backlog drops the oldest, and a restart marker stays visible
+- [x] 4.2 Manual browser check with the UI running (`/dev-start`): switch to Spanish and Traditional Chinese, press Restart feed, change language and club after a restart, open the page late; verify items never overlap, the ticker keeps working after each swap, a long backlog drops the oldest, and a restart marker stays visible
 - [x] 4.3 Run the full suites: `python -m pytest -q` in `backend/`, `dotnet test ui`, `node --test "ui/LineupOracle.Ui/wwwroot/js/*.test.js"`; verify all pass
 
 ## 5. Approval
 
-- [ ] 5.1 Human approval gate: summarize results and stop for the user's approval. Do not archive or merge before it. After approval, run the OpenSpec archive, then open a PR from `feature/ticker-no-overlap` and merge it
+- [x] 5.1 Human approval gate: summarize results and stop for the user's approval. Do not archive or merge before it. After approval, run the OpenSpec archive, then open a PR from `feature/ticker-no-overlap` and merge it
