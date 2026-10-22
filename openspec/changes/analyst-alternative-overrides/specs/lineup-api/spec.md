@@ -40,7 +40,7 @@ The service SHALL predict a club's starting XI for a match. It SHALL score playe
 ## ADDED Requirements
 
 ### Requirement: Manage session-scoped alternative selections
-The service SHALL let a session manually include or remove a non-starting player whose latest effective team-news kind is injury or doubt from the alternatives for that match and club, through `POST /alternatives` with the prediction request fields, a player id and `included` (true or false), returning the updated lineup. Repeating a request SHALL leave the same state. This operation SHALL NOT change the player's availability or the predicted XI. Suspended players SHALL NOT be eligible. An unknown match SHALL be rejected with 404. A club not in the match, a player not of the club, a starter, a player without injury or doubt news, a suspended player, or an include when the position already lists four alternatives and the player is not one of them SHALL be rejected with 422 and a message, without changing any state. A removal SHALL always be accepted and removing an absent selection SHALL change nothing. A stored selection that is not currently valid (suspended, recovered or in the XI) SHALL be left out of the response and kept until removed.
+The service SHALL let a session manually include or remove a non-starting player whose latest effective team-news kind is injury or doubt from the alternatives for that match and club, through `POST /alternatives` with the prediction request fields, a player id and `included` (true or false), returning the updated lineup. Repeating a request SHALL leave the same state. This operation SHALL NOT change the player's availability or the predicted XI. Suspended players SHALL NOT be eligible. An unknown match SHALL be rejected with 404. A club not in the match, a player not of the club, a starter, a player without injury or doubt news or a suspended player SHALL be rejected with 422 and a message, without changing any state. A removal SHALL always be accepted and removing an absent selection SHALL change nothing. A stored selection that is not currently valid (suspended, recovered or in the XI) SHALL be left out of the response and kept until removed.
 
 #### Scenario: Include an injured player
 - **WHEN** the session includes an injured non-starter in alternatives
@@ -52,7 +52,7 @@ The service SHALL let a session manually include or remove a non-starting player
 
 #### Scenario: Include a player who is already a natural alternative
 - **WHEN** the session includes a doubtful non-starter who already ranks among the position's alternatives
-- **THEN** the player stays listed in rank order, is marked manually included, and no other alternative is displaced
+- **THEN** the player stays listed in rank order, is marked manually included, and the other alternatives are unchanged
 
 #### Scenario: Remove a manual selection
 - **WHEN** the session removes a manual selection
@@ -66,7 +66,6 @@ The service SHALL let a session manually include or remove a non-starting player
 - **WHEN** the session includes a starter, a player with no injury or doubt news, or a player of another club
 - **THEN** the response is 422 and no state changes
 
-
 #### Scenario: Selection became a starter
 - **WHEN** a selected doubtful player is promoted into the XI by a starter's injury
 - **THEN** the player is not listed as an alternative, and the session can still remove the selection
@@ -74,10 +73,6 @@ The service SHALL let a session manually include or remove a non-starting player
 #### Scenario: Suspended player is rejected
 - **WHEN** the session attempts to include a suspended player
 - **THEN** the service rejects the request without changing availability, the XI, or any alternatives selection
-
-#### Scenario: Four alternatives per position
-- **WHEN** a selected eligible player is added to a position that already lists four alternatives and is not one of them
-- **THEN** the response is 422 with a message, the four alternatives and all selections are unchanged, and no more than four are ever returned for a position
 
 #### Scenario: Selection persists only in its session and context
 - **WHEN** an alternative selection is made for one session, match, and club

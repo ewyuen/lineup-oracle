@@ -30,10 +30,6 @@ The analyst SHALL be able to add or remove an injured or doubtful non-starter fr
 - **WHEN** the analyst removes a manually included player from the alternatives
 - **THEN** the lineup fragment updates with the normal ranked alternatives and the starting XI remains unchanged
 
-#### Scenario: The position already has four alternatives
-- **WHEN** the analyst adds an eligible player to a position with four alternatives
-- **THEN** the page shows a message that the position is full, the list is unchanged, and the player is not added
-
 #### Scenario: Fan mode has no controls
 - **WHEN** the page is in fan mode
 - **THEN** alternatives and their injury or doubt status are shown, and no add or remove action is offered
