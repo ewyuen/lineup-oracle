@@ -12,7 +12,7 @@
         <input type="hidden" name="club" value="@Model.SelectedClub" />
         <input type="hidden" name="mode" value="@Model.Mode" />
         <label for="newsText">@T["TeamNews"]</label>
-        <textarea id="newsText" name="newsText" rows="3" placeholder="@T["TeamNewsPlaceholder"]"></textarea>
+        <textarea id="newsText" name="newsText" rows="3" maxlength="100" placeholder="@T["TeamNewsPlaceholder"]"></textarea>
         <button class="button button-primary" type="submit">@T["Submit"]</button>
     </form>
     <div id="news-message" class="news-message" aria-live="polite">

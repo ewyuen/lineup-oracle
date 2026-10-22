@@ -115,3 +115,26 @@ def test_model_grounding_skipped_without_a_model_and_the_command_still_scores(mo
     evals.main()
     out = capsys.readouterr().out
     assert "Lineup: pipeline" in out and "Template explanations (analyst): 100%" in out and "Model explanations: skipped" in out
+
+
+def test_free_text_eval_scores_the_fixed_cases_without_a_model_call_to_the_network():
+    s = state()
+    cases = {text: (club, expected) for club, text, expected, _ in evals.free_text_cases(s)}
+    assert len(cases) == 7 and sum(c[3] for c in evals.free_text_cases(s)) == 3
+    players = {p.name: p for club in ROSTER.clubs.values() for p in club.players}
+
+    def perfect(payload):
+        club, expected = cases[payload["text"]]
+        named = [p for name, p in players.items() if name in payload["text"]]
+        persons = [{"name": p.name, "player_id": p.id if p.club == club else None} for p in named]
+        if "Sam Buyer" in payload["text"]:
+            persons.append({"name": "Sam Buyer", "player_id": None})
+        kind = expected[2] if expected[0] == "applied" else None
+        return {"club": club, "kind": kind, "persons": persons, "translations": {"en": "a", "es": "b", "zh-Hant": "c"}}
+
+    result = evals.free_text_accuracy(s, Pipeline(FakeClient(perfect)))
+    assert result["accuracy"] == 1.0 and result["listing_accuracy"] == 1.0 and result["failures"] == []
+    # a prompt that stops listing persons shows up in the listing figure
+    blind = evals.free_text_accuracy(s, Pipeline(FakeClient(lambda p: {**perfect(p), "persons": []})))
+    assert blind["listing_accuracy"] < 1.0 and blind["failures"]
+    assert "skipped" in evals.free_text_accuracy(s, Pipeline())

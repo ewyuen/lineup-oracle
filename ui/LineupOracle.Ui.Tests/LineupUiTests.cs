@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using LineupOracle.Ui;
@@ -304,6 +305,74 @@ public sealed class LineupUiTests
         Assert.DoesNotContain("id=\"busy-indicator\"", html);
         Assert.Contains("hx-swap-oob=\"outerHTML\"", html);
         Assert.DoesNotContain("Service unavailable", html);
+    }
+
+    [Fact]
+    public async Task TextBoxLimitsInputToOneHundredCharacters()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Matches("<textarea[^>]*id=\"newsText\"[^>]*maxlength=\"100\"", html);
+    }
+
+    [Theory]
+    [InlineData("recovered", "Harbor City", "Ari Crest marked recovered; XI updated")]
+    [InlineData("cleared", "Harbor City", "Ari Crest marked suspension served; XI updated")]
+    [InlineData("fit", "Harbor City", "Ari Crest marked declared fit; XI updated")]
+    [InlineData("injury", "Northmere", "Ari Crest (Northmere) marked injured; XI updated")]
+    public async Task AppliedTextNewsNamesThePlayerStatusAndOtherClub(string kind, string playerClub, string expected)
+    {
+        using var handler = new StubApiHandler
+        {
+            NewsOutcomeJson = "{\"outcome\":\"applied\",\"club\":\"" + playerClub + "\",\"player_name\":\"Ari Crest\",\"kind\":\"" + kind + "\"}"
+        };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var token = await GetAntiforgeryTokenAsync(client);
+        using var request = HtmxPost("/?handler=News", Form(token,
+            ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst"), ("newsText", "Ari Crest news")));
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("#lineup", response.Headers.GetValues("HX-Retarget").Single());
+        Assert.Contains(expected, html);
+    }
+
+    [Fact]
+    public async Task PostedTextNewsSaysSoAndKeepsTheLineup()
+    {
+        using var handler = new StubApiHandler { NewsOutcomeJson = "{\"outcome\":\"posted\",\"club\":\"Harbor City\",\"player_name\":null,\"kind\":null}" };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+        var token = await GetAntiforgeryTokenAsync(client);
+        using var request = HtmxPost("/?handler=News", Form(token,
+            ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst"), ("newsText", "Harbor City fans sing")));
+
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("Posted to the news feed", html);
+        Assert.Contains("data-player-id=\"player-1\"", html);
+    }
+
+    [Fact]
+    public async Task PostedLineInTheTickerHasNoNotAppliedMark()
+    {
+        var posted = "{\"seq\":3,\"kind\":\"info\",\"match_id\":\"match-1\",\"club\":\"Harbor City\",\"text\":\"Fans sing.\",\"applied\":false}";
+        using var handler = new StubApiHandler { NewsBody = NewsJson(3, false, posted, NewsItem(2, "Lee Rook is doubtful.", applied: false)) };
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var (_, html) = await PollNewsAsync(client);
+
+        Assert.Contains("Fans sing.", html);
+        Assert.Single(Regex.Matches(html, "\\(not applied\\)"));  // only the failed feed item carries the mark
+        Assert.DoesNotContain("Fans sing.</span> <em", html);
     }
 
     [Fact]
@@ -1035,6 +1104,7 @@ public sealed class LineupUiTests
         public bool FailNews { get; set; }
         public string NewsBody { get; set; } = """{"items":[],"latest_seq":0,"changed":false}""";
         public HttpStatusCode? NewsStatusCode { get; set; }
+        public string? NewsOutcomeJson { get; set; }
         public HttpStatusCode? PredictionStatusCode { get; set; }
         public HttpStatusCode? AlternativeStatusCode { get; set; }
         private readonly ConcurrentDictionary<string, HashSet<string>> selections = new();
@@ -1109,13 +1179,21 @@ public sealed class LineupUiTests
                 var playerId = root.TryGetProperty("player_id", out var idValue) && idValue.ValueKind == JsonValueKind.String
                     ? idValue.GetString()
                     : null;
-                return Json(HttpStatusCode.OK, BuildLineup(
+                var lineup = BuildLineup(
                     root.GetProperty("match_id").GetString()!,
                     root.GetProperty("club").GetString()!,
                     root.GetProperty("mode").GetString()!,
                     root.GetProperty("language").GetString()!,
                     playerId,
-                    selections.GetValueOrDefault(root.GetProperty("session_id").GetString()!) ?? []));
+                    selections.GetValueOrDefault(root.GetProperty("session_id").GetString()!) ?? []);
+                if (NewsOutcomeJson is not null && request.RequestUri.AbsolutePath.EndsWith("/team_news", StringComparison.Ordinal))
+                {
+                    var node = JsonNode.Parse(lineup)!.AsObject();
+                    node["news"] = JsonNode.Parse(NewsOutcomeJson);
+                    lineup = node.ToJsonString();
+                }
+
+                return Json(HttpStatusCode.OK, lineup);
             }
 
             if (request.RequestUri.AbsolutePath.EndsWith("/news/restart", StringComparison.Ordinal))

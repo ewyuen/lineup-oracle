@@ -249,6 +249,32 @@ def test_entries_keep_all_texts_and_poll_projects_one_language(feed, pipe):
     assert len(pipe.calls) == 2  # polling interpreted nothing
 
 
+def test_post_appends_an_info_entry_for_every_language_and_changes_nothing(feed):
+    key = _first_key(feed)
+    feed.step()
+    shared, predictions = dict(feed._shared), dict(feed._predictions)
+    seq = feed.post(*key, {"en": "Hello", "es": "Hola", "zh-Hant": "你好"})
+    assert seq == feed.latest_seq == 2
+    assert (feed._shared, feed._predictions) == (shared, predictions)
+    for lang, text in {"en": "Hello", "es": "Hola", "zh-Hant": "你好"}.items():
+        entry = feed.poll(1, *key, language=lang)[0][0]
+        assert (entry["kind"], entry["text"], entry["applied"]) == ("info", text, False)
+
+
+def test_info_entry_never_makes_the_poll_report_a_change(feed):
+    key = _first_key(feed)
+    feed.post(*key, {"en": "a", "es": "b", "zh-Hant": "c"})
+    items, _, changed = feed.poll(0, *key)
+    assert len(items) == 1 and changed is False
+
+
+def test_posted_line_survives_a_restart(feed):
+    key = _first_key(feed)
+    feed.post(*key, {"en": "a", "es": "b", "zh-Hant": "c"})
+    feed.restart()
+    assert [e["kind"] for e in _entries(feed)] == ["info", "restart", "news"]
+
+
 def test_merge_keeps_the_kind_through_precedence():
     from lineup_oracle.ingest import merge
 

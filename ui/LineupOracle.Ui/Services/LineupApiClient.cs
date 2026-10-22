@@ -37,6 +37,12 @@ public sealed record CandidateDto(
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("included")] bool Included);
 
+public sealed record NewsOutcomeDto(
+    [property: JsonPropertyName("outcome")] string Outcome,
+    [property: JsonPropertyName("club")] string Club,
+    [property: JsonPropertyName("player_name")] string? PlayerName,
+    [property: JsonPropertyName("kind")] string? Kind);
+
 public sealed record LineupDto(
     [property: JsonPropertyName("match_id")] string MatchId,
     [property: JsonPropertyName("club")] string Club,
@@ -46,7 +52,8 @@ public sealed record LineupDto(
     [property: JsonPropertyName("llm_used")] bool LlmUsed,
     [property: JsonPropertyName("mode")] string Mode,
     [property: JsonPropertyName("language")] string Language,
-    [property: JsonPropertyName("candidates")] IReadOnlyList<CandidateDto>? Candidates = null);
+    [property: JsonPropertyName("candidates")] IReadOnlyList<CandidateDto>? Candidates = null,
+    [property: JsonPropertyName("news")] NewsOutcomeDto? News = null);
 
 public sealed record PredictionRequest(
     [property: JsonPropertyName("match_id")] string MatchId,

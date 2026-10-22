@@ -2,7 +2,7 @@ using LineupOracle.Ui.Services;
 
 namespace LineupOracle.Ui.Pages;
 
-/// <summary>One ticker entry: a news item, a restart marker, or a restart marker with the item delivered with it.</summary>
+/// <summary>One ticker entry: a news item or posted line, a restart marker, or a restart marker with the item delivered with it.</summary>
 public sealed record NewsEntry(long Seq, bool Restarted, string? Text, bool Applied)
 {
     public static IReadOnlyList<NewsEntry> From(IReadOnlyList<NewsItemDto> items)
@@ -13,11 +13,11 @@ public sealed record NewsEntry(long Seq, bool Restarted, string? Text, bool Appl
             var item = items[i];
             if (!item.IsRestart)
             {
-                entries.Add(new NewsEntry(item.Seq, false, item.Text, item.Applied));
+                entries.Add(new NewsEntry(item.Seq, false, item.Text, item.Applied || item.Kind == "info"));
             }
             else if (i + 1 < items.Count && !items[i + 1].IsRestart)
             {
-                entries.Add(new NewsEntry(items[i + 1].Seq, true, items[i + 1].Text, items[i + 1].Applied));
+                entries.Add(new NewsEntry(items[i + 1].Seq, true, items[i + 1].Text, items[i + 1].Applied || items[i + 1].Kind == "info"));
                 i++;
             }
             else

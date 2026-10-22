@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from lineup_oracle.api import create_app
 from lineup_oracle.events import generate_fixtures, generate_match_events
 from lineup_oracle.explain import explain
+from lineup_oracle.picking import STATUS_OF_KIND
 from lineup_oracle.llm import DEFAULT_TIMEOUT, LlmSettings
 from lineup_oracle.pipeline import UNAVAILABLE, NewsRejected, Pipeline
 from lineup_oracle.roster import CLUB_NAMES, generate_synthetic_roster
@@ -99,6 +100,108 @@ def test_parser_off_is_unavailable():
     with pytest.raises(NewsRejected) as err:
         Pipeline().interpret("x", CLUB)
     assert str(err.value) == UNAVAILABLE
+
+
+# --- free-text read ---------------------------------------------------
+
+OPPONENT = ROSTER.clubs["Northmere"]
+OTHER = ROSTER.clubs[next(c for c in CLUB_NAMES if c not in ("Harbor City", "Northmere"))]
+TEXTS = {"en": "English line", "es": "Línea", "zh-Hant": "新聞"}
+
+
+def read(answer, text="x"):
+    pipeline, _ = pipeline_for(lambda p: answer)
+    return pipeline.read(text, CLUB, ROSTER.clubs, OPPONENT)
+
+
+def person(player, with_id=True):
+    return {"name": player.name, "player_id": player.id if with_id else None}
+
+
+def test_read_applies_an_injury_to_the_selected_club():
+    got = read(dict(club="Harbor City", kind="injury", persons=[person(STAR)]))
+    assert (got.outcome, got.club, got.player, got.kind) == ("applied", "Harbor City", STAR, "injury")
+
+
+@pytest.mark.parametrize("kind", ["recovered", "cleared", "fit"])
+def test_read_accepts_the_clearing_kinds(kind):
+    assert read(dict(kind=kind, persons=[person(STAR)])).kind == kind
+    assert STATUS_OF_KIND[kind] == "available"
+
+
+def test_read_finds_a_player_by_full_name_without_an_id():
+    assert read(dict(kind="doubt", persons=[person(STAR, with_id=False)])).player == STAR
+
+
+def test_read_finds_an_opponent_player_and_applies_to_that_club():
+    target = OPPONENT.players[2]
+    got = read(dict(kind="injury", persons=[{"name": target.name.upper(), "player_id": None}]))
+    assert (got.outcome, got.club, got.player) == ("applied", "Northmere", target)
+
+
+def test_read_status_for_a_club_outside_the_match_is_rejected():
+    outsider = OTHER.players[0]
+    with pytest.raises(NewsRejected, match=OTHER.name):
+        read(dict(kind="injury", persons=[person(outsider, with_id=False)]))
+
+
+def test_read_player_of_any_club_without_a_status_is_posted():
+    got = read(dict(persons=[person(OTHER.players[0], with_id=False)], translations=TEXTS))
+    assert (got.outcome, got.player, got.texts) == ("posted", OTHER.players[0], TEXTS)
+
+
+def test_read_two_players_unknown_person_and_outsider_are_rejected():
+    with pytest.raises(NewsRejected, match="One player per line"):
+        read(dict(kind="injury", persons=[person(STAR), person(CLUB.players[1])]))
+    with pytest.raises(NewsRejected, match="Player not found: Nobody Known"):
+        read(dict(kind="injury", persons=[{"name": "Nobody Known", "player_id": None}]))
+    with pytest.raises(NewsRejected, match="Player not found: Sam Buyer"):
+        read(dict(club="Harbor City", persons=[{"name": "Sam Buyer", "player_id": None}], translations=TEXTS))
+
+
+def test_read_club_only_line_is_posted_even_with_a_status():
+    got = read(dict(club="northmere", kind="injury", translations=TEXTS))
+    assert got.outcome == "posted" and got.player is None and got.club == "Harbor City"
+
+
+def test_read_no_person_and_no_known_club_is_rejected():
+    for answer in (dict(), dict(club="Nowhere FC", translations=TEXTS), dict(kind="injury", translations=TEXTS)):
+        with pytest.raises(NewsRejected, match="name a player or a team"):
+            read(answer)
+
+
+@pytest.mark.parametrize(
+    "translations",
+    [None, {"en": "a", "zh-Hant": "c"}, {**TEXTS, "es": "  "}, {**TEXTS, "en": "x" * 201}],
+)
+def test_read_post_needs_three_usable_texts(translations):
+    with pytest.raises(NewsRejected):
+        read(dict(club="Harbor City", translations=translations))
+
+
+def test_read_post_accepts_exactly_the_cap_and_a_status_needs_no_translations():
+    assert read(dict(club="Harbor City", translations={**TEXTS, "en": "x" * 200})).outcome == "posted"
+    assert read(dict(kind="injury", persons=[person(STAR)])).outcome == "applied"
+
+
+def test_read_model_off_and_unreadable_answers():
+    with pytest.raises(NewsRejected) as err:
+        Pipeline().read("x", CLUB, ROSTER.clubs, OPPONENT)
+    assert str(err.value) == UNAVAILABLE
+    with pytest.raises(NewsRejected, match="could not be read"):
+        read("not json")
+    with pytest.raises(NewsRejected, match="could not be read"):
+        read(dict(persons="Hugo"))
+    failing, _ = pipeline_for(lambda p: RuntimeError("boom"))
+    with pytest.raises(NewsRejected, match="unavailable"):
+        failing.read("x", CLUB, ROSTER.clubs, OPPONENT)
+
+
+def test_interpret_is_unchanged_by_the_new_fields():
+    pipeline, _ = pipeline_for(parser_says(club="Harbor City", player_id=STAR.id, kind="injury", persons=[person(STAR)], translations=TEXTS))
+    assert pipeline.interpret("x", CLUB) == (STAR.id, "injury")
+    cleared, _ = pipeline_for(parser_says(player_id=STAR.id, kind="fit"))
+    assert cleared.interpret("x", CLUB) == (STAR.id, "fit")
 
 
 # --- explainer --------------------------------------------------------
@@ -194,7 +297,8 @@ def test_text_news_equals_button_news():
     button, _ = make_client(explain_all)
     by_button = button.post("/team_news", json=body(match, player_id=starter, kind="injury"))
     assert by_text.status_code == 200 and starter not in ids(by_text.json())
-    assert by_text.json() == by_button.json()
+    assert {**by_text.json(), "news": None} == by_button.json()
+    assert by_text.json()["news"]["outcome"] == "applied"
 
 
 @pytest.mark.parametrize(

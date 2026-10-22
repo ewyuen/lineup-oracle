@@ -216,16 +216,20 @@ public sealed class IndexModel(
         }
 
         Lineup = result.Value;
-        if (!string.IsNullOrWhiteSpace(playerId) && !string.IsNullOrWhiteSpace(kind))
+        if (Lineup?.News is { Outcome: "posted" })
         {
-            var kindText = kind switch
-            {
-                "injury" => text["InjuryPast"].Value,
-                "suspension" => text["SuspensionPast"].Value,
-                "doubt" => text["DoubtPast"].Value,
-                _ => kind
-            };
-            NewsMessage = text["MarkedUpdated", playerName ?? playerId, kindText].Value;
+            NewsMessage = text["NewsPosted"].Value;
+        }
+        else if (Lineup?.News is { Outcome: "applied", Kind: not null } applied)
+        {
+            var name = applied.PlayerName ?? playerName ?? playerId ?? "";
+            NewsMessage = applied.Club == club
+                ? text["MarkedUpdated", name, KindPast(applied.Kind)].Value
+                : text["MarkedUpdatedClub", name, KindPast(applied.Kind), applied.Club].Value;
+        }
+        else if (!string.IsNullOrWhiteSpace(playerId) && !string.IsNullOrWhiteSpace(kind))
+        {
+            NewsMessage = text["MarkedUpdated", playerName ?? playerId, KindPast(kind)].Value;
         }
         else if (!string.IsNullOrWhiteSpace(newsText))
         {
@@ -236,6 +240,17 @@ public sealed class IndexModel(
         Response.Headers["HX-Reswap"] = "outerHTML";
         return Partial("_Lineup", this);
     }
+
+    private string KindPast(string kind) => kind switch
+    {
+        "injury" => text["InjuryPast"].Value,
+        "suspension" => text["SuspensionPast"].Value,
+        "doubt" => text["DoubtPast"].Value,
+        "recovered" => text["RecoveredPast"].Value,
+        "cleared" => text["ClearedPast"].Value,
+        "fit" => text["FitPast"].Value,
+        _ => kind
+    };
 
     // Adds or removes an injured or doubtful player in the alternatives. On an error only the message is swapped, so the lineup stays.
     public async Task<IActionResult> OnPostAlternativeAsync(

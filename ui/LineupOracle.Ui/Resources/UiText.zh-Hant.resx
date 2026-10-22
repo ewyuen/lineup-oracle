@@ -21,8 +21,8 @@
   <data name="Favourite" xml:space="preserve"><value>最愛</value></data>
   <data name="MarkFavourite" xml:space="preserve"><value>設為最愛球會</value></data>
   <data name="TeamNews" xml:space="preserve"><value>球隊消息</value></data>
-  <data name="TeamNewsHelp" xml:space="preserve"><value>回報球員受傷、停賽或上陣成疑，亦可輸入球隊消息。</value></data>
-  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>輸入球隊消息</value></data>
+  <data name="TeamNewsHelp" xml:space="preserve"><value>回報球員受傷、復出或成疑，或發佈一則簡短球隊消息（最多100字）。</value></data>
+  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>輸入球隊消息（最多100字）</value></data>
   <data name="Submit" xml:space="preserve"><value>提交</value></data>
   <data name="Retry" xml:space="preserve"><value>重試</value></data>
   <data name="Updating" xml:space="preserve"><value>正在更新...</value></data>
@@ -52,6 +52,11 @@
   <data name="InjuryPast" xml:space="preserve"><value>受傷</value></data>
   <data name="SuspensionPast" xml:space="preserve"><value>停賽</value></data>
   <data name="DoubtPast" xml:space="preserve"><value>列為成疑</value></data>
+  <data name="RecoveredPast" xml:space="preserve"><value>已康復</value></data>
+  <data name="ClearedPast" xml:space="preserve"><value>已服滿停賽</value></data>
+  <data name="FitPast" xml:space="preserve"><value>已確認可出賽</value></data>
+  <data name="MarkedUpdatedClub" xml:space="preserve"><value>{0}（{2}）已{1}；陣容已更新</value></data>
+  <data name="NewsPosted" xml:space="preserve"><value>已發佈至新聞</value></data>
   <data name="NoFixtures" xml:space="preserve"><value>目前沒有可用賽事。</value></data>
   <data name="NoLineup" xml:space="preserve"><value>選擇賽事和球會以查看陣容。</value></data>
   <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>顯示機率和解釋來源。</value></data>
