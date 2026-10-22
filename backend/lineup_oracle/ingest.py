@@ -125,8 +125,10 @@ class Feed:
         return xi, facts
 
     def restart(self) -> int:
-        """Reset to the baseline and deliver the first item now; returns the latest sequence number."""
-        with self.lock:
+        """Reset to the baseline, clear every session's personal news and alternatives, and deliver the first item now;
+        returns the latest sequence number. The automatic loop reset leaves personal news alone."""
+        with self.state.lock, self.lock:  # state before feed, the order team-news submits use
+            self.state.reset()
             self._reset()
             self._pos = 0
             self._reanchor = True
