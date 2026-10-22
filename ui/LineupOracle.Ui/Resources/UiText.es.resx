@@ -67,4 +67,12 @@
   <data name="AlternativeCandidates" xml:space="preserve"><value>Jugadores no disponibles</value></data>
   <data name="AddAlternative" xml:space="preserve"><value>Añadir a alternativas</value></data>
   <data name="RemoveAlternative" xml:space="preserve"><value>Quitar de alternativas</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>Pregunta sobre un jugador</value></data>
+  <data name="HistoryHelp" xml:space="preserve"><value>Pregunta qué le pasó a un jugador, por ejemplo "¿Qué hizo Saka antes de la jornada 3?" (hasta 300 caracteres).</value></data>
+  <data name="HistoryPlaceholder" xml:space="preserve"><value>Pregunta sobre un jugador...</value></data>
+  <data name="HistoryAsk" xml:space="preserve"><value>Preguntar</value></data>
+  <data name="HistoryAi" xml:space="preserve"><value>Respuesta de IA</value></data>
+  <data name="HistoryTemplate" xml:space="preserve"><value>Respuesta de plantilla</value></data>
+  <data name="HistoryEvents" xml:space="preserve"><value>Eventos</value></data>
+  <data name="HistoryYou" xml:space="preserve"><value>Tú</value></data>
 </root>

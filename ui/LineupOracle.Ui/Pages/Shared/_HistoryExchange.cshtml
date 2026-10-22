@@ -1,0 +1,34 @@
+@model LineupOracle.Ui.Pages.IndexModel
+@using System.Globalization
+@using LineupOracle.Ui
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<UiText> T
+<div class="history-exchange">
+    <p class="history-question"><strong>@T["HistoryYou"]:</strong> @Model.HistoryQuestion</p>
+    @if (Model.HistoryResult is { } result)
+    {
+        <div class="history-answer">
+            <p class="muted history-marker">@(result.LlmUsed ? T["HistoryAi"] : T["HistoryTemplate"])</p>
+            <p class="history-text">@result.Answer</p>
+            @if (result.Events.Count > 0)
+            {
+                <details>
+                    <summary>@T["HistoryEvents"] (@result.Events.Count)</summary>
+                    <ul class="history-events">
+                        @foreach (var e in result.Events)
+                        {
+                            var when = DateTimeOffset.TryParse(e.OccurredAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
+                                ? at.UtcDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC"
+                                : e.OccurredAt;
+                            <li>@when · @e.Type · @e.MatchId@if (e.Text is { Length: > 0 } t) {<text>: @t</text>}</li>
+                        }
+                    </ul>
+                </details>
+            }
+        </div>
+    }
+    else
+    {
+        <p class="error-message">@Model.HistoryError</p>
+    }
+</div>
