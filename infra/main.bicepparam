@@ -13,3 +13,7 @@ param uiImageTag = readEnvironmentVariable('UI_IMAGE_TAG', '')
 // No-quota option: point at a model you already have (see infra/README.md). Empty creates a new account.
 param existingLlmEndpoint = readEnvironmentVariable('EXISTING_LLM_ENDPOINT', '')
 param existingLlmDeployment = readEnvironmentVariable('EXISTING_LLM_DEPLOYMENT', '')
+
+// Optional player-history graph (Postgres + Apache AGE). Off unless GRAPH_ADMIN_PASSWORD is set; see infra/README.md.
+param graphAdminPassword = readEnvironmentVariable('GRAPH_ADMIN_PASSWORD', '')
+param enableHistoryGraph = !empty(graphAdminPassword)

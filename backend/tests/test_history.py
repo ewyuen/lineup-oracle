@@ -50,7 +50,8 @@ def test_team_news_counts_offsets_as_hours_and_play_as_minutes():
     news = next(e for e in EVENTS if e.type == "team_news" and e.minute == -48)
     shot = next(e for e in EVENTS if e.type == "shot")
     assert occurred_at(news, 3) == kickoff(3) - timedelta(hours=48)
-    assert occurred_at(shot, 3) == kickoff(3) + timedelta(minutes=shot.minute)
+    exact = kickoff(3) + timedelta(minutes=shot.minute)
+    assert occurred_at(shot, 3) == exact.replace(microsecond=exact.microsecond // 1000 * 1000)  # kept to the millisecond
 
 
 # --- retrieval ----------------------------------------------------------
