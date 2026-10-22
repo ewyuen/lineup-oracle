@@ -20,16 +20,16 @@
 
 ## 4. Graph store (Postgres + Apache AGE)
 
-- [ ] 4.1 Add `docker-compose.yml` for Postgres + AGE and add `psycopg` to the dependencies; verify `docker compose up -d` starts and a `SELECT * FROM ag_catalog.ag_graph` query runs.
-- [ ] 4.2 Spike: confirm that one `UNWIND` with agtype parameters works through psycopg; record the result in design.md and choose batched or per-row loading; verify with a short script run against the container.
-- [ ] 4.3 Add `graph.py` with the connect helper (`LOAD 'age'`, search path), `--load` (drop and rebuild in one transaction with the design's vertices and edges, no pass events) and the fixed parameterised retrieval query; verify with DB tests (skipped when `LINEUP_PG_URL` is unset) for the seeded counts (6 clubs, 120 players, 30 matches, shots, tackles and team news only) and for loading twice.
-- [ ] 4.4 Route `/player_history` retrieval through the graph when `LINEUP_PG_URL` is set, falling back to memory on any `psycopg.Error` or when unset; verify with tests for unset, an unreachable URL (same result as memory), and a hostile player name like `}) DETACH DELETE` that matches nobody and leaves the graph intact.
-- [ ] 4.5 Add the parity test running a set of filters through both the graph and the memory path and asserting identical results; verify it passes against the container and skips without one.
+- [x] 4.1 Add `docker-compose.yml` for Postgres + AGE and add `psycopg` to the dependencies; verify `docker compose up -d` starts and a `SELECT * FROM ag_catalog.ag_graph` query runs.
+- [x] 4.2 Spike: confirm that one `UNWIND` with agtype parameters works through psycopg; record the result in design.md and choose batched or per-row loading; verify with a short script run against the container.
+- [x] 4.3 Add `graph.py` with the connect helper (`LOAD 'age'`, search path), `--load` (drop and rebuild in one transaction with the design's vertices and edges, no pass events) and the fixed parameterised retrieval query; verify with DB tests (skipped when `LINEUP_PG_URL` is unset) for the seeded counts (6 clubs, 120 players, 30 matches, shots, tackles and team news only) and for loading twice.
+- [x] 4.4 Route `/player_history` retrieval through the graph when `LINEUP_PG_URL` is set, falling back to memory on any `psycopg.Error` or when unset; verify with tests for unset, an unreachable URL (same result as memory), and a hostile player name like `}) DETACH DELETE` that matches nobody and leaves the graph intact.
+- [x] 4.5 Add the parity test running a set of filters through both the graph and the memory path and asserting identical results; verify it passes against the container and skips without one.
 
 ## 5. Contracts and docs
 
-- [ ] 5.1 Update ARCHITECTURE.md in the same PR: system-context diagram, the `player_history` contract, the MCP tool list, the kickoff-time rule, and the "Persistence" open decision (record the reversal of the Oct 20 cut); verify by reading the file against the specs.
-- [ ] 5.2 Update `backend/README.md` and CLAUDE.md with the new env vars (`LINEUP_PG_URL`), `docker compose up`, `python -m lineup_oracle.graph --load` and the new endpoint; verify the documented commands run as written.
+- [x] 5.1 Update ARCHITECTURE.md in the same PR: system-context diagram, the `player_history` contract, the MCP tool list, the kickoff-time rule, and the "Persistence" open decision (record the reversal of the Oct 20 cut); verify by reading the file against the specs.
+- [x] 5.2 Update `backend/README.md` and CLAUDE.md with the new env vars (`LINEUP_PG_URL`), `docker compose up`, `python -m lineup_oracle.graph --load` and the new endpoint; verify the documented commands run as written.
 
 ## 6. Azure (cuttable)
 

@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: In-memory state with no database
-The service SHALL load the roster and events at startup, from `data/roster.json` and `data/events.jsonl` when present, otherwise generating them in memory from seed 42. Submitted availability SHALL live in memory and be lost on restart. Lineup prediction, team news and the read-only match operations SHALL use only this in-memory state and SHALL NOT depend on any database. The service MAY use an optional graph database for player-history reads only, and SHALL start and serve normally when it is absent or down.
+The service SHALL load the roster and events at startup, from `data/roster.json` and `data/events.jsonl` when present, otherwise generating them in memory from seed 42. A stored events file whose team-news items lack a non-empty `payload.text` or a non-empty Spanish or Traditional Chinese translation SHALL be rejected with an error that says to regenerate the events. Submitted availability SHALL live in memory and be lost on restart. Lineup prediction, team news and the read-only match operations SHALL use only this in-memory state and SHALL NOT depend on any database. The service MAY use an optional graph database for player-history reads only, and SHALL start and serve normally when it is absent or down.
 
 #### Scenario: Missing events file
 - **WHEN** the service starts and `data/events.jsonl` does not exist
@@ -12,6 +12,10 @@ The service SHALL load the roster and events at startup, from `data/roster.json`
 #### Scenario: Deterministic prediction
 - **WHEN** the same prediction is requested twice with no news in between
 - **THEN** the two responses are identical
+
+#### Scenario: Outdated or invalid localized event data
+- **WHEN** the service loads an events file whose team-news item lacks `payload.text` or has a missing or empty Spanish or Traditional Chinese translation
+- **THEN** startup fails with an error instructing the operator to regenerate the events file
 
 #### Scenario: Prediction without the database
 - **WHEN** the graph database is not configured or is unreachable

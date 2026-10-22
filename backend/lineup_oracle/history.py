@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
+import psycopg
 
 from .events import Event
 from .roster import Player
@@ -11,6 +15,7 @@ from .state import State
 SEASON_START = datetime(2026, 8, 15, 15, 0, tzinfo=timezone.utc)  # matchday 1 kickoff; every matchday follows a week later
 MATCHDAY_SPACING = timedelta(days=7)
 EVENT_TYPES = ("shot", "tackle", "team_news")  # the events that are player history; passes and the rest are not
+log = logging.getLogger(__name__)
 HISTORY_TYPES = (*EVENT_TYPES, "started")  # `started` items come from the match metadata, not from an event
 
 
@@ -62,8 +67,10 @@ def kickoff(matchday: int) -> datetime:
 def occurred_at(event: Event, matchday: int) -> datetime:
     """Kickoff plus the event's minute; team news counts its offset (48, 24 or 1) as hours before kickoff."""
     if event.type == "team_news":
-        return kickoff(matchday) - timedelta(hours=abs(event.minute))
-    return kickoff(matchday) + timedelta(minutes=event.minute)
+        moment = kickoff(matchday) - timedelta(hours=abs(event.minute))
+    else:
+        moment = kickoff(matchday) + timedelta(minutes=event.minute)
+    return _floor_ms(moment)
 
 
 def resolve_player(state: State, ref: str) -> Player:
@@ -93,14 +100,25 @@ def team_news_players(state: State) -> dict[str, str]:
     return linked
 
 
+def _floor_ms(moment: datetime) -> datetime:
+    """Times are kept to the millisecond, as `iso` prints them, so comparing datetimes and comparing their text agree."""
+    return moment.replace(microsecond=moment.microsecond // 1000 * 1000)
+
+
 def _utc(moment: datetime | None) -> datetime | None:
     if moment is None:
         return None
-    return moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment.astimezone(timezone.utc)
+    return _floor_ms(moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment.astimezone(timezone.utc))
 
 
-def retrieve_player_history(state: State, filters: HistoryFilters) -> History:
-    """The player's shots, tackles, team news and starts, filtered, in time then id order. Reference implementation of the retrieval."""
+GraphFetch = Callable[[Player, HistoryFilters], list[HistoryItem]]  # raises psycopg.Error when the graph cannot answer
+
+
+def retrieve_player_history(state: State, filters: HistoryFilters, graph: GraphFetch | None = None) -> History:
+    """The player's shots, tackles, team news and starts, filtered, in time then id order.
+
+    Filters are validated here. With a `graph` the rows come from it, and any database error falls back to the in-memory scan,
+    which is the reference implementation and gives the same rows."""
     player = resolve_player(state, filters.player)
     types = filters.types
     if types is not None:
@@ -113,11 +131,22 @@ def retrieve_player_history(state: State, filters: HistoryFilters) -> History:
     if filters.match is not None and filters.match not in state.metadata:
         raise HistoryError(f"Unknown match {filters.match!r}")
     used = HistoryFilters(player.id, tuple(types) if types is not None else None, start, end, filters.match)
+    items = None
+    if graph is not None:
+        try:
+            items = graph(player, used)
+        except psycopg.Error as err:
+            log.warning("Graph unavailable, answering player history from memory: %s", err)
+    return History(player, used, items if items is not None else history_from_memory(state, player, used))
+
+
+def history_from_memory(state: State, player: Player, used: HistoryFilters) -> list[HistoryItem]:
+    types, start, end = used.types, used.start, used.end
 
     def wanted(kind: str, match_id: str, at: datetime) -> bool:
         return (
             (types is None or kind in types)
-            and (filters.match is None or match_id == filters.match)
+            and (used.match is None or match_id == used.match)
             and (start is None or at >= start)
             and (end is None or at <= end)
         )
@@ -135,8 +164,7 @@ def retrieve_player_history(state: State, filters: HistoryFilters) -> History:
             at = kickoff(meta.payload["matchday"])
             if wanted("started", match_id, at):
                 items.append(HistoryItem(f"{match_id}-start-{player.id}", "started", match_id, player.club, at, {"matchday": meta.payload["matchday"]}))
-    items.sort(key=lambda i: (i.occurred_at, i.id))
-    return History(player, used, items)
+    return sorted(items, key=lambda i: (i.occurred_at, i.id))
 
 
 def _count(n: int, noun: str) -> str:

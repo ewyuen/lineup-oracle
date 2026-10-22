@@ -33,6 +33,13 @@ param existingLlmEndpoint string = ''
 @description('Existing model deployment name (used with existingLlmEndpoint).')
 param existingLlmDeployment string = ''
 
+@description('Create a Postgres Flexible Server with Apache AGE for the player-history graph and give the API its URL. Off by default: the API answers history from memory without it.')
+param enableHistoryGraph bool = false
+
+@secure()
+@description('Admin password of the history graph server (letters and digits only, since it goes into a URL). Required when enableHistoryGraph is true.')
+param graphAdminPassword string = ''
+
 var suffix = uniqueString(resourceGroup().id)
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 var openAiUserRoleId = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
@@ -135,6 +142,64 @@ resource openAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!
   }
 }
 
+// Player-history graph (optional). Public endpoint with TLS and the Azure-services firewall rule; the data is synthetic.
+var graphAdminUser = 'lineup'
+var graphDatabase = 'lineup'
+
+resource graphServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = if (enableHistoryGraph) {
+  name: '${namePrefix}-pg-${suffix}'
+  location: location
+  sku: {
+    name: 'Standard_B1ms'
+    tier: 'Burstable'
+  }
+  properties: {
+    version: '16'
+    administratorLogin: graphAdminUser
+    administratorLoginPassword: graphAdminPassword
+    storage: { storageSizeGB: 32 }
+    backup: { backupRetentionDays: 7 }
+    network: { publicNetworkAccess: 'Enabled' }
+  }
+}
+
+resource graphDb 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = if (enableHistoryGraph) {
+  parent: graphServer
+  name: graphDatabase
+}
+
+resource graphAzureServices 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = if (enableHistoryGraph) {
+  parent: graphServer
+  name: 'AllowAzureServices'
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
+}
+
+// AGE must be allow-listed, then preloaded; configurations are changed one at a time.
+resource graphExtensions 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2024-08-01' = if (enableHistoryGraph) {
+  parent: graphServer
+  name: 'azure.extensions'
+  properties: {
+    value: 'AGE'
+    source: 'user-override'
+  }
+  dependsOn: [ graphDb ]
+}
+
+resource graphPreload 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2024-08-01' = if (enableHistoryGraph) {
+  parent: graphServer
+  name: 'shared_preload_libraries'
+  properties: {
+    value: 'AGE'
+    source: 'user-override'
+  }
+  dependsOn: [ graphExtensions ]
+}
+
+var graphUrl = enableHistoryGraph ? 'postgresql://${graphAdminUser}:${graphAdminPassword}@${graphServer!.properties.fullyQualifiedDomainName}:5432/${graphDatabase}?sslmode=require' : ''
+
 var llmEndpoint = useExistingLlm ? existingLlmEndpoint : 'https://${foundryName}.openai.azure.com/'
 var llmDeployment = useExistingLlm ? existingLlmDeployment : modelName
 
@@ -154,18 +219,22 @@ module api 'containerApp.bicep' = {
     targetPort: apiReal ? 8000 : 80
     externalIngress: false
     healthProbe: apiReal
-    env: [
+    env: concat([
       { name: 'OTEL_SERVICE_NAME', value: 'lineup-api' }
       { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
       { name: 'LINEUP_LLM_ENDPOINT', value: llmEndpoint }
       { name: 'LINEUP_LLM_DEPLOYMENT', value: llmDeployment }
       // Tells DefaultAzureCredential which user-assigned identity to use.
       { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
-    ]
+    ], enableHistoryGraph ? [
+      { name: 'LINEUP_PG_URL', secretRef: 'pg-url' }
+    ] : [])
+    graphUrl: graphUrl
   }
   dependsOn: [
     acrPull
     openAiUser
+    graphPreload
   ]
 }
 
@@ -194,6 +263,7 @@ module ui 'containerApp.bicep' = {
 output uiUrl string = 'https://${ui.outputs.fqdn}'
 output llmEndpoint string = llmEndpoint
 output llmDeployment string = llmDeployment
+output graphHost string = enableHistoryGraph ? graphServer!.properties.fullyQualifiedDomainName : ''
 output registryName string = registry.name
 output registryLoginServer string = registry.properties.loginServer
 output appInsightsConnectionString string = insights.properties.ConnectionString

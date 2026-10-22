@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## State of the repo
 
-Implementation has started. Done and archived: `synthetic-data-and-replay`, `pstart-scoring-and-xi-optimizer` and `fastapi-and-mcp-server` (the Python package `lineup_oracle` in `backend/`: seeded roster, event generator, async replay, P(start) scoring, XI optimizer and FastAPI service). Nothing else is built yet. The repo also holds [PLAN.md](PLAN.md) (agreed design, deadlines, risks), `openspec/` (specs and change proposals) and agent/skill config. Read PLAN.md before designing anything.
+Implementation has started. Done and archived: `synthetic-data-and-replay`, `pstart-scoring-and-xi-optimizer` and `fastapi-and-mcp-server` (the Python package `lineup_oracle` in `backend/`: seeded roster, event generator, async replay, P(start) scoring, XI optimizer and FastAPI service). Nothing else is built yet except the in-progress `player-history-graph-rag` change (history retrieval, `POST /player_history`, optional Postgres + Apache AGE graph). The repo also holds [PLAN.md](PLAN.md) (agreed design, deadlines, risks), `openspec/` (specs and change proposals) and agent/skill config. Read PLAN.md before designing anything.
 
 Backend commands, run from `backend/`: `python -m pytest -q` (all tests), `python -m pytest -q -k <name>` (one test), `python -m lineup_oracle.events --seed 42 --out data/events.jsonl` (generate events), `python -m lineup_oracle.roster` (rewrite the seeded `data/roster.json`), `uvicorn lineup_oracle.api:create_app --factory` (API on port 8000). Details are in `backend/README.md`. No lint tooling yet.
 

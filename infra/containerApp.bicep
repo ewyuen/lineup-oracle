@@ -9,6 +9,10 @@ param targetPort int
 param externalIngress bool
 param env array = []
 
+@secure()
+@description('Postgres URL of the player-history graph, kept as the Container Apps secret `pg-url`. Empty: no secret.')
+param graphUrl string = ''
+
 @description('HTTP probes on /health. Off for the placeholder image, which does not serve it.')
 param healthProbe bool = false
 
@@ -25,6 +29,9 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: environmentId
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: empty(graphUrl) ? [] : [
+        { name: 'pg-url', value: graphUrl }
+      ]
       ingress: {
         external: externalIngress
         targetPort: targetPort

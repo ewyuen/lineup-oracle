@@ -1,0 +1,13 @@
+# Local Postgres with Apache AGE for the player-history graph. Dev only: the password is public.
+# LINEUP_PG_URL=postgresql://lineup:lineup@localhost:5433/lineup
+services:
+  graph:
+    image: apache/age:release_PG16_1.6.0
+    environment:
+      POSTGRES_USER: lineup
+      POSTGRES_PASSWORD: lineup
+      POSTGRES_DB: lineup
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ./db/init-age.sql:/docker-entrypoint-initdb.d/init-age.sql:ro

@@ -29,6 +29,8 @@ flowchart LR
         Pick --> Explain["Agent Framework explainer"]
         Explain -->|model unavailable or fails| Template["Template explanation fallback"]
     end
+    API -.->|player_history reads, optional| PG[("Postgres + Apache AGE<br/>history graph")]
+    Files[("roster.json, events.jsonl")] -->|graph --load| PG
     Parser <-->|optional parse| Model["Configured model deployment"]
     Explain <-->|optional explanation| Model
 ```
@@ -126,6 +128,17 @@ The feed keeps a numbered log of the last 50 entries (`seq` never decreases, inc
 
 `GET /matches` returns `[{match_id, matchday, home_club, away_club}]` in matchday order. `GET /matches/{match_id}/xi` returns the recorded XI and formation of both clubs (404 for an unknown match). `GET /health` returns `{"status": "ok"}`. Run with `uvicorn lineup_oracle.api:create_app --factory`.
 
+### `player_history` (stable)
+
+`POST /player_history` with exactly one of `question` (at most 300 characters) or `filters` `{player, types?, from?, to?, match?}`; neither or both is 422. `player` is a player id or an exact name (an ambiguous name is rejected with the candidate ids, an unknown one with its name); `types` is a subset of `shot`, `tackle`, `team_news` and `started` (null means all); `from` and `to` are inclusive ISO 8601 times (naive means UTC); `match` is a match id. The response is `{filters, events, answer, cited_event_ids, llm_used}`: `filters` are the filters used (player resolved to its id, times in UTC), `events` are `{id, type, match_id, club, occurred_at, payload}` in time then id order, and every error is `422 {"detail": message}`.
+
+- **What is history:** shots, tackles and team news (linked to a player by `payload.player_name` within the club; a name that matches nobody, or two players of one club with one name, is an error naming the event) and one `started` item per match the player was in the true XI. Passes, pressure and possession changes are not history. A `started` item has the id `<match_id>-start-<player_id>` and sits at the match's kickoff.
+- **Times (the kickoff rule):** the events file has no timestamps. `kickoff_at = 2026-08-15T15:00Z + 7 days × (matchday - 1)`; `occurred_at = kickoff + minute` minutes, except team news, whose offsets (48, 24, 1) are hours before kickoff. Times are kept to the millisecond and printed as `…T15:00:00.000Z`. The constant lives in `lineup_oracle/history.py`.
+- **Question path:** the model (`Pipeline.parse_history_question`) reads the question into `{player, types, from, to, match}`, given the matchday kickoff table, and code validates every part (a player that resolves, known types, parseable and ordered times, a known match) or answers 422. With the model off, a question is 422 asking for explicit filters. Explicit filters never call the model to parse.
+- **Answer path:** the model (`Pipeline.answer_history`) gets only the retrieved events (the newest 100, oldest first) and returns an answer with `cited_event_ids`. If it is off, fails, returns nothing, or cites an id it was not given, the response carries a deterministic template summary citing every retrieved event, with `llm_used` false. No events retrieved means the template "Nothing found" answer and no citations, with no model call. An explicit-filters request never fails because of the model.
+- **Graph or memory:** one retrieval, two implementations. In memory (`history_from_memory`) it scans the loaded events and is the reference. With `LINEUP_PG_URL` set it runs two fixed, parameterised Cypher queries on the Postgres + Apache AGE graph (`lineup_oracle/graph.py`); any `psycopg.Error` (connect timeout 2 s, statement timeout 5 s) falls back to memory for that request with a log line. Both return identical rows (a parity test checks it). Player resolution and filter validation always run in memory, so user text never reaches Cypher text.
+- **The graph is a derived index, read-only for the API.** Vertices `Club{name, formation}`, `Player{id, name, position, number}`, `Match{id, matchday, kickoff_at}`, `Event{id, type, minute, occurred_at, payload}`; edges `PLAYS_FOR`, `HOME_IN`, `AWAY_IN`, `STARTED`, `HAD` (player to event) and `IN` (event to match). `python -m lineup_oracle.graph --load` drops and rebuilds it from the files in one transaction (about 10 s; a failed load keeps the old graph). The API never connects at startup, so a down database cannot stop it, and predictions, team news and match reads never touch it.
+
 ### UI (stable)
 
 The ASP.NET Razor Pages + HTMX app is a single page and calls only the FastAPI service. It loads fixtures from `GET /matches`, predicts with `POST /predict_lineup`, and submits preset or typed team news with `POST /team_news`. In analyst mode it lists each position's eligible injured or doubtful players with an add or remove action that calls `POST /alternatives` and swaps only the lineup fragment; fan mode shows the alternatives and their status without controls. Preset injury, suspension and doubt updates are supported; typed news (box limited to 100 characters) goes to the LLM parser when the model is configured, otherwise the API rejects it with 422. After a submission the page says whether a player's status was updated (naming the club when it is not the selected one) or the line was posted to the news feed; rejections show under the box. Each browser gets a random `session_id`; the UI sends it, the selected mode and language with prediction and news requests. Mode, language and favourite club are presentation preferences stored in cookies. The UI owns presentation only; it does not score players, choose formations, or keep availability state.
@@ -183,6 +196,6 @@ Correct starters out of 11 versus a "same XI as last match" baseline, on held-ou
 ## Open decisions
 
 - **Event Hubs instead of the in-process queue:** cut unless time allows. Owner: user. Decide by Oct 25 feature freeze.
-- **Persistence:** none. Roster and events are files; prediction history, if needed, is in memory or SQLite. Postgres was cut (decided Oct 20).
+- **Persistence:** none for the XI path. Roster and events are files and availability is in memory. Player history may use an optional, read-only Postgres + Apache AGE graph, a derived index of those files (`player-history-graph-rag`). This reverses the Oct 20 note "Postgres was cut", for history only: with the database absent or down, `player_history` answers from memory and nothing else changes.
 - ~~Formation-to-MILP mapping and formation priors~~ Decided in `pstart-scoring-and-xi-optimizer`: one MILP per supported formation (1 GK, DEF, MID, FWD counts, middle bands as midfield), priors 1.0 / 0.85.
 - **Theme fit of a pre-match predictor:** decided not to ask the sponsor; accepted risk.

@@ -33,6 +33,16 @@ Teardown: `az group delete --name lineup-oracle-rg`.
 | `modelSkuName`, `modelCapacity` | `GlobalStandard`, `30` | Deployment SKU and capacity (thousand tokens per minute) |
 | `existingLlmEndpoint`, `existingLlmDeployment` | empty | Use a model you already have; no Foundry account is created. Environment variables `EXISTING_LLM_ENDPOINT` and `EXISTING_LLM_DEPLOYMENT` |
 
+## Player-history graph (optional)
+
+Off by default: without it `POST /player_history` answers from memory. To add the Postgres Flexible Server with Apache AGE (Burstable `Standard_B1ms`, PostgreSQL 16, public endpoint with TLS), set `GRAPH_ADMIN_PASSWORD` (letters and digits only, it goes into a URL) before `deploy.ps1`. The template then allow-lists and preloads `AGE`, and gives the API the `LINEUP_PG_URL` Container Apps secret. Not yet deployed or checked in a real subscription: confirm AGE is offered for the region and SKU first (otherwise leave it off; the demo then runs from memory).
+
+After the first deployment:
+
+1. `az postgres flexible-server restart --resource-group <rg> --name <graphHost output prefix>`: changing `shared_preload_libraries` needs a restart.
+2. Load the graph from a machine that can reach the server (add your IP with `az postgres flexible-server firewall-rule create`): `LINEUP_PG_URL=<url with sslmode=require> python -m lineup_oracle.graph --load` from `backend/`. The loader creates the `age` extension itself.
+3. Reload the same way after the roster or events change.
+
 ## No model quota
 
 If the subscription has no `gpt-4.1-mini` quota in the region, either try another `-Location`, or set `EXISTING_LLM_ENDPOINT` and `EXISTING_LLM_DEPLOYMENT` before running the script. Grant the identity named `<prefix>-id-*` in the resource group the `Cognitive Services OpenAI User` role on that account yourself. With no model at all the app still works, with template explanations.

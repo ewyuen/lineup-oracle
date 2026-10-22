@@ -42,6 +42,22 @@ The generator draws each true XI with weight `quality ** 4`, so better players s
 
 Run the API from `backend/`: `uvicorn lineup_oracle.api:create_app --factory` (port 8000). It loads `data/roster.json` and `data/events.jsonl` if present, otherwise generates the same data in memory from seed 42. Regenerate the events file with the command above if it was made before the `matchday` field or the `payload.translations` field existed (startup stops with an error otherwise). Operations: `GET /matches`, `GET /matches/{match_id}/xi`, `POST /predict_lineup`, `POST /team_news`, `GET /news`, `POST /news/restart`, `GET /health`. Team news accepts a player id and a kind (`injury`, `suspension`, `doubt`); free text (at most 100 characters) goes to the LLM parser when the model is configured (otherwise it is rejected with 422): a status for a player of the match (including recovered, cleared and fit) is applied to your session, other news is posted to the shared news log (one post per session every 10 seconds, else 429), and an unknown person is rejected as player not found. Availability is in memory only and kept per `session_id` (default `"default"`), so separate visitors do not affect each other.
 
+## Player history
+
+`POST /player_history` answers "what happened to this player": shots, tackles, team news and the matches they started, each with an id and a time. Send either `{"question": "What happened to Pia Ash before matchday 3?"}` (needs the model; otherwise 422) or `{"filters": {"player": "Pia Ash", "types": ["team_news"], "from": "2026-08-20T00:00:00Z", "to": null, "match": null}}` (player is an id or an exact name; `types` are `shot`, `tackle`, `team_news`, `started`). The response has the filters used, the events, an `answer`, the `cited_event_ids` and `llm_used`; without the model, or if it cites an event it was not given, the answer is a template summary. The events file has no timestamps, so times follow a rule documented in ARCHITECTURE.md (matchday 1 kicks off on 2026-08-15 15:00Z, then weekly).
+
+By default history is read from the events in memory. For the graph version, run Postgres with Apache AGE and load it:
+
+```bash
+cd backend
+docker compose up -d                       # Postgres + AGE on localhost:5433
+export LINEUP_PG_URL=postgresql://lineup:lineup@localhost:5433/lineup
+python -m lineup_oracle.graph --load       # drop and rebuild the graph from roster.json and events.jsonl (about 10 s)
+uvicorn lineup_oracle.api:create_app --factory
+```
+
+With `LINEUP_PG_URL` set the API reads history from the graph and falls back to memory on any database error; the result is the same either way. Predictions, team news and match reads never use the database. The database tests in `tests/test_graph.py` run only when `LINEUP_PG_URL` is set.
+
 ## News feed
 
 While the API runs, one shared feed (`lineup_oracle/ingest.py`) delivers the team-news events of matchday 1, one every 15 seconds (`FEED_INTERVAL`), in order of minute, match and event id. Each item is parsed once by the LLM, applied to the shared availability, and the club's XI is picked once and stored, so every visitor sees it and none of them repeats the work. Without a configured model every item is logged as not applied. After the last item the feed resets and loops. `GET /news?since=&match_id=&club=&language=` returns the recent log (reads only), each entry's `text` in `language` (`en` default, `es`, `zh-Hant`; others give 422) and `POST /news/restart` resets and delivers item 1 now. A visitor's own team news stays private and is applied on top of the shared availability, the later event winning. The feed and its predictions are in memory, so run one API replica.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 import threading
 import time
@@ -16,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .checks import failed_rules
 from .explain import explain
+from . import graph
 from .history import HISTORY_TYPES, HistoryError, HistoryFilters, iso, kickoff, retrieve_player_history, template_answer
 from .ingest import Feed, merge
 from .optimizer import POSITIONS
@@ -195,6 +197,8 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
     app.state.lineup = state or State.load()
     app.state.pipeline = pipeline or Pipeline.from_env()
     app.state.feed = Feed(app.state.lineup, app.state.pipeline)
+    pg_url = os.environ.get("LINEUP_PG_URL")  # optional graph database for player-history reads; unset means memory
+    app.state.history_graph = functools.partial(graph.fetch_history, pg_url) if pg_url else None
     # shortcut: the map grows with the number of sessions and is lost on restart; use a bounded or shared store if the API runs several replicas
     last_post: dict[str, float] = {}
     post_lock = threading.Lock()
@@ -367,7 +371,7 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                     asked = HistoryFilters(f.player, tuple(f.types) if f.types is not None else None, f.from_, f.to, f.match)
                 else:
                     asked = _history_filters_from_question(s, pipeline, req.question)
-                history = retrieve_player_history(s, asked)
+                history = retrieve_player_history(s, asked, app.state.history_graph)
             except HistoryError as err:
                 raise HTTPException(422, str(err)) from err
             rows = [item.to_dict() for item in history.items]
