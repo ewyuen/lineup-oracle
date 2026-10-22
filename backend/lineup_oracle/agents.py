@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 from agent_framework import Agent
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Person(BaseModel):
@@ -34,6 +34,23 @@ class Explanations(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     explanations: list[PlayerExplanation]
+
+
+class ParsedHistoryQuestion(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    player: str | None = None
+    types: list[str] | None = None
+    from_: str | None = Field(None, alias="from")
+    to: str | None = None
+    match: str | None = None
+
+
+class HistoryAnswer(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    answer: str
+    cited_event_ids: list[str]
 
 
 PARSER_INSTRUCTIONS = (
@@ -68,3 +85,30 @@ def parser_agent(client) -> Agent:
 
 def explainer_agent(client) -> Agent:
     return Agent(client, EXPLAINER_INSTRUCTIONS, name="explainer")
+
+
+HISTORY_PARSER_INSTRUCTIONS = (
+    "You turn one question about what happened to a football player into search filters. "
+    "You receive JSON with the question and the kickoff time of every matchday (ISO 8601, UTC). "
+    "Answer with JSON only: {\"player\": the player's full name exactly as written in the question, \"types\": a list of the event types the question asks about, "
+    "from shot, tackle, team_news (injuries, suspensions and doubts) and started (matches the player started), or null for all, "
+    "\"from\": start of the time range as ISO 8601 or null, \"to\": end of the time range as ISO 8601 or null, \"match\": a match id or null}. "
+    "Map phrases such as \"before matchday 3\" or \"after matchday 2\" to the kickoff times you were given. "
+    "Use null for anything the question does not say. Never invent a player."
+)
+
+HISTORY_ANSWER_INSTRUCTIONS = (
+    "You answer a question about what happened to a football player, using only the events you receive. "
+    "You receive JSON with the question, the filters and the events (id, type, match_id, club, occurred_at, payload), oldest first. "
+    "Use only these events, nothing else, and add no outside knowledge about real players or clubs. Be brief: at most 80 words. "
+    "Answer with JSON only: {\"answer\": the answer text, \"cited_event_ids\": the ids of every event the answer relies on}. "
+    "Cite only ids you received."
+)
+
+
+def history_parser_agent(client) -> Agent:
+    return Agent(client, HISTORY_PARSER_INSTRUCTIONS, name="history-parser")
+
+
+def history_answer_agent(client) -> Agent:
+    return Agent(client, HISTORY_ANSWER_INSTRUCTIONS, name="history-answerer")

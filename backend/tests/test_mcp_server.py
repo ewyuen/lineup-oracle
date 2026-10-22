@@ -32,9 +32,9 @@ def _data(result):
     return json.loads(result[0].text)
 
 
-def test_exactly_four_tools_with_descriptions():
+def test_exactly_five_tools_with_descriptions():
     tools = asyncio.run(_server().list_tools())
-    assert sorted(t.name for t in tools) == ["get_match_xi", "list_matches", "predict_lineup", "submit_team_news"]
+    assert sorted(t.name for t in tools) == ["ask_player_history", "get_match_xi", "list_matches", "predict_lineup", "submit_team_news"]
     assert all(t.description for t in tools)
 
 
@@ -69,3 +69,20 @@ def test_api_url_from_environment(monkeypatch):
     assert str(_default_client().base_url) == "http://example.test:9"
     monkeypatch.delenv("LINEUP_API_URL")
     assert str(_default_client().base_url) == "http://127.0.0.1:8000"
+
+
+def test_player_history_tool_forwards_filters_and_errors():
+    async def run():
+        server = _server()
+        history = _data(await server.call_tool("ask_player_history", {"player": "Pia Ash", "types": ["team_news"]}))
+        assert history["filters"]["player"] == "harbor-city-20"
+        assert history["events"] and {e["type"] for e in history["events"]} == {"team_news"}
+        assert history["cited_event_ids"] == [e["id"] for e in history["events"]]
+        with pytest.raises(ToolError, match="Unknown player 'Zed Zed'"):
+            await server.call_tool("ask_player_history", {"player": "Zed Zed"})
+        with pytest.raises(ToolError, match="either a question or filters"):
+            await server.call_tool("ask_player_history", {})
+        with pytest.raises(ToolError, match="LLM|unavailable"):
+            await server.call_tool("ask_player_history", {"question": "What happened to Pia Ash?"})
+
+    asyncio.run(run())

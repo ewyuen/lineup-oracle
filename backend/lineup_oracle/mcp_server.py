@@ -56,6 +56,19 @@ def create_server(client_factory: Callable[[], httpx.AsyncClient] = _default_cli
         """Get the actual starting XI and formation of both clubs for a match."""
         return await call("GET", f"/matches/{match_id}/xi")
 
+    @server.tool()
+    async def ask_player_history(
+        question: str | None = None, player: str | None = None, types: list[str] | None = None,
+        start: str | None = None, end: str | None = None, match_id: str | None = None,
+    ) -> dict:
+        """What happened to a player (shots, tackles, team news, starts), with the events and their ids. Give either a free-text question, or a player (id or exact name) with optional types (shot, tackle, team_news, started), start and end (ISO 8601) and a match id."""
+        body: dict = {}
+        if question is not None:
+            body["question"] = question
+        if any(v is not None for v in (player, types, start, end, match_id)):
+            body["filters"] = {"player": player, "types": types, "from": start, "to": end, "match": match_id}
+        return await call("POST", "/player_history", body)
+
     return server
 
 

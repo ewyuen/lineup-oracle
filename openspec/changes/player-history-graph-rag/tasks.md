@@ -2,21 +2,21 @@
 
 ## 1. Branch and in-memory history
 
-- [ ] 1.1 Create branch `feature/player-history-graph-rag` from main (bringing this change folder with it); verify `git branch --show-current` prints it and the change files are tracked there.
-- [ ] 1.2 Add `history.py` with the season-start/kickoff rule, `occurred_at` (team-news offsets in hours, others in minutes), the player resolver (id or exact name, ambiguity and unknown errors), and `retrieve_player_history(state, filters)` over the in-memory events (shot, tackle, team news, plus `started` items from match metadata); verify with unit tests for kickoff spacing, 48-hour team news, type/time/match filters, time-then-id ordering, ambiguous and unknown players, and the `started` exclusion rule.
-- [ ] 1.3 Link team news to players by `payload.player_name` within the club, failing with the event id on a miss; verify with a unit test for a linked event and one for an unknown name.
+- [x] 1.1 Create branch `feature/player-history-graph-rag` from main (bringing this change folder with it); verify `git branch --show-current` prints it and the change files are tracked there.
+- [x] 1.2 Add `history.py` with the season-start/kickoff rule, `occurred_at` (team-news offsets in hours, others in minutes), the player resolver (id or exact name, ambiguity and unknown errors), and `retrieve_player_history(state, filters)` over the in-memory events (shot, tackle, team news, plus `started` items from match metadata); verify with unit tests for kickoff spacing, 48-hour team news, type/time/match filters, time-then-id ordering, ambiguous and unknown players, and the `started` exclusion rule.
+- [x] 1.3 Link team news to players by `payload.player_name` within the club, failing with the event id on a miss; verify with a unit test for a linked event and one for an unknown name.
 
 ## 2. Template answer and API
 
-- [ ] 2.1 Add the deterministic template summary (counts by type, matches started, dated team-news items, cited ids, "nothing found" case); verify with unit tests for a normal, an empty and a team-news-only history.
-- [ ] 2.2 Add `POST /player_history` (exactly one of `question` or `filters`, else 422; the `{filters, events, answer, cited_event_ids, llm_used}` shape; 422 for an unknown player) using the memory path and template answer; verify with API tests for filters, neither/both, unknown player, a question with no LLM configured (422 asking for filters), and that `/predict_lineup` is unchanged.
-- [ ] 2.3 Add the `ask_player_history` MCP tool as a pass-through that forwards the API's error message; verify with MCP tests for the tool list (five tools), forwarding, and an error case.
+- [x] 2.1 Add the deterministic template summary (counts by type, matches started, dated team-news items, cited ids, "nothing found" case); verify with unit tests for a normal, an empty and a team-news-only history.
+- [x] 2.2 Add `POST /player_history` (exactly one of `question` or `filters`, else 422; the `{filters, events, answer, cited_event_ids, llm_used}` shape; 422 for an unknown player) using the memory path and template answer; verify with API tests for filters, neither/both, unknown player, a question with no LLM configured (422 asking for filters), and that `/predict_lineup` is unchanged.
+- [x] 2.3 Add the `ask_player_history` MCP tool as a pass-through that forwards the API's error message; verify with MCP tests for the tool list (five tools), forwarding, and an error case.
 
 ## 3. LLM question parsing and answering
 
-- [ ] 3.1 Add `llm.py` (httpx chat-completions client, env `LLM_ENDPOINT`, `LLM_API_KEY`, `LLM_MODEL`, 10 s timeout, unconfigured when unset); verify with unit tests using a stubbed transport for success, timeout and bad status.
-- [ ] 3.2 Add question-to-filters parsing with strict validation (player resolves, types in the allowed set, times parse and are ordered, otherwise 422) and the cited-answer step (every cited id must be retrieved, else template; any LLM failure falls back to template with `llm_used` false); verify with unit tests using a fake LLM for a good parse, an invalid type, a missing player, a hallucinated citation, and an LLM error on an explicit-filters request.
-- [ ] 3.3 Wire the LLM into `/player_history`; verify with an API test using a fake LLM where a question returns events, cited ids and `llm_used` true.
+- [x] 3.1 Add the history-parser and history-answer agents to `agents.py` and the `Pipeline` methods that call them (existing `LINEUP_LLM_*` settings and timeout, off when unset); verify with unit tests using `fake_llm.FakeClient` for success, timeout and an unreadable answer.
+- [x] 3.2 Add question-to-filters parsing with strict validation (player resolves, types in the allowed set, times parse and are ordered, otherwise 422) and the cited-answer step (every cited id must be retrieved, else template; any LLM failure falls back to template with `llm_used` false); verify with unit tests using a fake LLM for a good parse, an invalid type, a missing player, a hallucinated citation, and an LLM error on an explicit-filters request.
+- [x] 3.3 Wire the LLM into `/player_history`; verify with an API test using a fake LLM where a question returns events, cited ids and `llm_used` true.
 
 ## 4. Graph store (Postgres + Apache AGE)
 
@@ -29,7 +29,7 @@
 ## 5. Contracts and docs
 
 - [ ] 5.1 Update ARCHITECTURE.md in the same PR: system-context diagram, the `player_history` contract, the MCP tool list, the kickoff-time rule, and the "Persistence" open decision (record the reversal of the Oct 20 cut); verify by reading the file against the specs.
-- [ ] 5.2 Update `backend/README.md` and CLAUDE.md with the new env vars (`LINEUP_PG_URL`, `LLM_*`), `docker compose up`, `python -m lineup_oracle.graph --load` and the new endpoint; verify the documented commands run as written.
+- [ ] 5.2 Update `backend/README.md` and CLAUDE.md with the new env vars (`LINEUP_PG_URL`), `docker compose up`, `python -m lineup_oracle.graph --load` and the new endpoint; verify the documented commands run as written.
 
 ## 6. Azure (cuttable)
 

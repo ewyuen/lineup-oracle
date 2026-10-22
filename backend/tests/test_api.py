@@ -552,3 +552,56 @@ def test_only_a_cleared_text_lifts_a_suspension(text_client, state):
     pipeline.result = NewsRead("applied", club, player, "cleared")
     assert _text(client, match, session_id="a").status_code == 200
     assert victim["id"] in {p["id"] for p in _predict(client, match, session_id="a").json()["players"]}
+
+
+# --- player history -----------------------------------------------------
+
+
+def test_history_by_filters(client):
+    body = client.post("/player_history", json={"filters": {"player": "harbor-city-20", "types": ["shot", "tackle"]}}).json()
+    assert body["filters"]["player"] == "harbor-city-20" and body["filters"]["types"] == ["shot", "tackle"]
+    assert body["events"] and {e["type"] for e in body["events"]} == {"shot", "tackle"}
+    times = [e["occurred_at"] for e in body["events"]]
+    assert times == sorted(times)
+    assert body["llm_used"] is False
+    assert body["answer"].startswith("Pia Ash (Harbor City):")
+    assert body["cited_event_ids"] == [e["id"] for e in body["events"]]
+
+
+def test_history_time_range_and_name(client):
+    everything = client.post("/player_history", json={"filters": {"player": "Pia Ash"}}).json()
+    cut = everything["events"][5]["occurred_at"]
+    after = client.post("/player_history", json={"filters": {"player": "Pia Ash", "from": cut}}).json()
+    assert [e["id"] for e in after["events"]] == [e["id"] for e in everything["events"][5:]]
+    assert after["filters"]["from"] == cut
+
+
+def test_history_nothing_found(client):
+    body = client.post("/player_history", json={"filters": {"player": "Pia Ash", "from": "2030-01-01T00:00:00Z"}}).json()
+    assert body["events"] == [] and body["cited_event_ids"] == []
+    assert body["answer"].startswith("Nothing found")
+
+
+@pytest.mark.parametrize(
+    "body, message",
+    [
+        ({}, "either a question or filters"),
+        ({"question": "q", "filters": {"player": "Pia Ash"}}, "either a question or filters"),
+        ({"filters": {"player": "Zed Zed"}}, "Unknown player 'Zed Zed'"),
+        ({"filters": {"player": "Pia Ash", "types": ["pass"]}}, "Input should be 'shot'"),
+        ({"filters": {"player": "Pia Ash", "match": "nope"}}, "Unknown match"),
+        ({"filters": {"player": "Pia Ash", "from": "2026-09-01T00:00:00Z", "to": "2026-08-01T00:00:00Z"}}, "ends before it starts"),
+        ({"question": "What happened to Pia Ash?"}, "explicit filters"),
+    ],
+)
+def test_history_rejections(client, body, message):
+    response = client.post("/player_history", json=body)
+    assert response.status_code == 422
+    assert message in response.json()["detail"]
+
+
+def test_history_does_not_change_predictions(client):
+    match = _match(client)
+    before = _predict(client, match).json()
+    client.post("/player_history", json={"filters": {"player": "Pia Ash"}})
+    assert _predict(client, match).json() == before
