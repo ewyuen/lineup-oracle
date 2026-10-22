@@ -237,6 +237,38 @@ public sealed class IndexModel(
         return Partial("_Lineup", this);
     }
 
+    // Adds or removes an injured or doubtful player in the alternatives. On an error only the message is swapped, so the lineup stays.
+    public async Task<IActionResult> OnPostAlternativeAsync(
+        string matchId,
+        string club,
+        string mode,
+        string playerId,
+        bool included,
+        CancellationToken cancellationToken)
+    {
+        EnsureSessionCookie();
+        Mode = NormalizeMode(mode);
+        SelectedMatchId = matchId;
+        SelectedClub = club;
+
+        var result = await api.SelectAlternativeAsync(
+            new AlternativeRequest(matchId, club, Mode, Language, GetSessionId(), playerId, included),
+            cancellationToken);
+        if (!result.IsSuccess)
+        {
+            IsUnavailable = result.IsUnavailable;
+            ApiError = result.IsUnavailable ? text["ServiceUnavailable"].Value : result.Error;
+            Response.Headers["HX-Retarget"] = "#news-message";
+            Response.Headers["HX-Reswap"] = "innerHTML";
+            return Partial("_NewsMessage", this);
+        }
+
+        Lineup = result.Value;
+        Response.Headers["HX-Retarget"] = "#lineup";
+        Response.Headers["HX-Reswap"] = "outerHTML";
+        return Partial("_Lineup", this);
+    }
+
     public async Task<IActionResult> OnPostLanguageAsync(
         string language,
         string? matchId,

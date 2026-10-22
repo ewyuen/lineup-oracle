@@ -5,7 +5,7 @@ import threading
 import time
 from collections import deque
 
-from .picking import STATUS_OF_KIND, pick
+from .picking import pick, statuses
 from .pipeline import NewsRejected
 from .state import State
 
@@ -35,7 +35,7 @@ class Feed:
         self._reanchor = False  # set by restart(): the producer starts its 15 s count again
         self._seq = 0  # never goes back, across resets too
         self._log: deque[dict] = deque(maxlen=LOG_SIZE)
-        self._shared: dict[tuple[str, str], dict[str, tuple[str, int]]] = {}  # (match, club) -> {player: (status, seq)}
+        self._shared: dict[tuple[str, str], dict[str, tuple[str, int]]] = {}  # (match, club) -> {player: (kind, seq)}
         self._predictions: dict[tuple[str, str], tuple] = {}  # (match, club) -> (xi, facts, seq)
 
     @property
@@ -73,9 +73,8 @@ class Feed:
                 raise NewsRejected(f"Player {player_id!r} does not belong to club {item.club!r}")
             with self.lock:
                 before = dict(self._shared.get(key, {}))
-            status = STATUS_OF_KIND[kind]
-            xi, facts = pick(self.state, *key, {p: s for p, (s, _) in {**before, player_id: (status, 0)}.items()})
-            outcome = (player_id, status, before, xi, facts)
+            xi, facts = pick(self.state, *key, statuses({**before, player_id: (kind, 0)}))
+            outcome = (player_id, kind, before, xi, facts)
         except Exception:  # unreadable, unknown player, no legal XI or a bug: the item is logged and the feed goes on
             outcome = None
         with self.lock:
@@ -85,9 +84,9 @@ class Feed:
             if outcome is None:
                 self._append(**entry, applied=False)
                 return
-            player_id, status, before, xi, facts = outcome
+            player_id, kind, before, xi, facts = outcome
             seq = self._append(**entry, applied=True)
-            self._shared[key] = {**before, player_id: (status, seq)}
+            self._shared[key] = {**before, player_id: (kind, seq)}
             self._predictions[key] = (xi, facts, seq)
 
     def shared_availability(self, match_id: str, club: str) -> dict[str, tuple[str, int]]:
@@ -102,7 +101,7 @@ class Feed:
             if key in self._predictions:
                 return self._predictions[key][:2]
             generation, shared = self.generation, dict(self._shared.get(key, {}))
-        xi, facts = pick(self.state, match_id, club, {p: s for p, (s, _) in shared.items()})
+        xi, facts = pick(self.state, match_id, club, statuses(shared))
         with self.lock:
             if generation == self.generation:
                 self._predictions.setdefault(key, (xi, facts, self._seq))
@@ -148,6 +147,6 @@ class Feed:
             next_at = max(next_at + FEED_INTERVAL, clock())
 
 
-def merge(shared: dict[str, tuple[str, int]], personal: dict[str, tuple[str, int]]) -> dict[str, str]:
-    """Status per player from the shared and the personal availability: the later event (larger seq) wins, a tie goes to the personal one."""
-    return {p: (personal[p] if p in personal and (p not in shared or personal[p][1] >= shared[p][1]) else shared[p])[0] for p in shared.keys() | personal.keys()}
+def merge(shared: dict[str, tuple[str, int]], personal: dict[str, tuple[str, int]]) -> dict[str, tuple[str, int]]:
+    """The winning (kind, seq) per player from the shared and the personal availability: the later event (larger seq) wins, a tie goes to the personal one."""
+    return {p: personal[p] if p in personal and (p not in shared or personal[p][1] >= shared[p][1]) else shared[p] for p in shared.keys() | personal.keys()}

@@ -83,7 +83,7 @@ def test_injury_removes_player_from_stored_prediction(feed, state, pipe):
     xi, facts, seq = feed._predictions[(item.match_id, item.club)]
     assert player_id not in {p.id for p, _ in xi.players} or kind == "doubt"
     assert len(xi.players) == 11
-    assert feed._shared[(item.match_id, item.club)][player_id] == ({"doubt": "doubt"}.get(kind, "out"), seq)
+    assert feed._shared[(item.match_id, item.club)][player_id] == (kind, seq)
     entry = _entries(feed)[-1]
     assert entry["applied"] and entry["text"] == item.payload["text"]
 
@@ -247,3 +247,24 @@ def test_entries_keep_all_texts_and_poll_projects_one_language(feed, pipe):
         assert entries[0]["text"] == expected and "texts" not in entries[0]
     assert feed.poll(None)[0][0]["text"] == item.payload["text"]  # English by default
     assert len(pipe.calls) == 2  # polling interpreted nothing
+
+
+def test_merge_keeps_the_kind_through_precedence():
+    from lineup_oracle.ingest import merge
+
+    shared = {"a": ("suspension", 5), "b": ("injury", 3), "c": ("doubt", 4)}
+    personal = {"a": ("doubt", 4), "b": ("suspension", 3), "d": ("injury", 1)}
+    merged = merge(shared, personal)
+    assert merged["a"] == ("suspension", 5)  # the later feed event wins
+    assert merged["b"] == ("suspension", 3)  # same sequence: personal wins
+    assert merged["c"] == ("doubt", 4) and merged["d"] == ("injury", 1)
+    assert merge(personal, shared)["a"] == ("suspension", 5)
+
+
+def test_feed_keeps_injury_doubt_and_suspension_apart(feed, pipe):
+    item = feed.items[0]
+    key = _first_key(feed)
+    for kind in ("injury", "doubt", "suspension"):
+        pipe.override[item.payload["text"]] = (pipe.answers[item.payload["text"]][0], kind)
+        feed.restart()
+        assert feed.shared_availability(*key)[pipe.answers[item.payload["text"]][0]][0] == kind

@@ -26,7 +26,16 @@ public sealed record PlayerDto(
     [property: JsonPropertyName("number")] int Number,
     [property: JsonPropertyName("position")] string Position,
     [property: JsonPropertyName("p_start")] double PStart,
-    [property: JsonPropertyName("explanation")] string Explanation);
+    [property: JsonPropertyName("explanation")] string Explanation,
+    [property: JsonPropertyName("status")] string Status = "available");
+
+public sealed record CandidateDto(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("number")] int Number,
+    [property: JsonPropertyName("position")] string Position,
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("included")] bool Included);
 
 public sealed record LineupDto(
     [property: JsonPropertyName("match_id")] string MatchId,
@@ -36,7 +45,8 @@ public sealed record LineupDto(
     [property: JsonPropertyName("alternatives")] IReadOnlyDictionary<string, IReadOnlyList<PlayerDto>> Alternatives,
     [property: JsonPropertyName("llm_used")] bool LlmUsed,
     [property: JsonPropertyName("mode")] string Mode,
-    [property: JsonPropertyName("language")] string Language);
+    [property: JsonPropertyName("language")] string Language,
+    [property: JsonPropertyName("candidates")] IReadOnlyList<CandidateDto>? Candidates = null);
 
 public sealed record PredictionRequest(
     [property: JsonPropertyName("match_id")] string MatchId,
@@ -54,6 +64,15 @@ public sealed record TeamNewsRequest(
     [property: JsonPropertyName("player_id")] string? PlayerId = null,
     [property: JsonPropertyName("kind")] string? Kind = null,
     [property: JsonPropertyName("text")] string? Text = null);
+
+public sealed record AlternativeRequest(
+    [property: JsonPropertyName("match_id")] string MatchId,
+    [property: JsonPropertyName("club")] string Club,
+    [property: JsonPropertyName("mode")] string Mode,
+    [property: JsonPropertyName("language")] string Language,
+    [property: JsonPropertyName("session_id")] string SessionId,
+    [property: JsonPropertyName("player_id")] string PlayerId,
+    [property: JsonPropertyName("included")] bool Included);
 
 public sealed record NewsItemDto(
     [property: JsonPropertyName("seq")] long Seq,
@@ -88,6 +107,12 @@ public sealed class LineupApiClient(HttpClient httpClient, ILogger<LineupApiClie
 
     public Task<ApiResult<LineupDto>> SubmitTeamNewsAsync(TeamNewsRequest request, CancellationToken cancellationToken = default) =>
         SendAsync<LineupDto>(new HttpRequestMessage(HttpMethod.Post, "team_news")
+        {
+            Content = JsonContent.Create(request, options: JsonOptions)
+        }, cancellationToken);
+
+    public Task<ApiResult<LineupDto>> SelectAlternativeAsync(AlternativeRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync<LineupDto>(new HttpRequestMessage(HttpMethod.Post, "alternatives")
         {
             Content = JsonContent.Create(request, options: JsonOptions)
         }, cancellationToken);

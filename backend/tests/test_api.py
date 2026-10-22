@@ -167,7 +167,7 @@ def test_latest_news_wins(client, state):
     _news(client, match, starter, "doubt")
     out = _news(client, match, starter, "injury").json()
     assert starter not in {p["id"] for p in out["players"]}
-    assert state.availability[("default", match["match_id"], match["home_club"])][starter] == ("out", 0)
+    assert state.availability[("default", match["match_id"], match["home_club"])][starter] == ("injury", 0)
 
 
 def test_doubt_is_explained(client):
@@ -297,15 +297,15 @@ def test_later_event_wins_between_personal_and_feed(feed_client):
     _news(client, match, victim, "doubt")
     key = ("default", match["match_id"], match["home_club"])
     feed.step()
-    status = feed._shared[(match["match_id"], match["home_club"])][victim][0]
+    shared = feed._shared[(match["match_id"], match["home_club"])][victim]
     from lineup_oracle.ingest import merge
 
-    assert merge(feed.shared_availability(match["match_id"], match["home_club"]), client.app.state.lineup.availability[key])[victim] == status
+    assert merge(feed.shared_availability(match["match_id"], match["home_club"]), client.app.state.lineup.availability[key])[victim] == shared
     # feed out first, then a personal doubt: the personal one is later
     feed.restart()
     _news(client, match, victim, "doubt")
     merged = merge(feed.shared_availability(match["match_id"], match["home_club"]), client.app.state.lineup.availability[key])
-    assert merged[victim] == "doubt"
+    assert merged[victim][0] == "doubt"
 
 
 def test_personal_news_does_not_reach_other_sessions_or_the_feed(feed_client):
