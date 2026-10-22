@@ -2,9 +2,9 @@
 
 ## Context
 
-See proposal.md - Why. The API currently stores effective availability as only `out` or `doubt`, so an injury and suspension are indistinguishable after submission. `pick_xi` returns the starters and two ranked alternatives per position, and the UI renders alternatives as text without actions. The API's in-memory availability is already keyed by session, match, and club.
+See proposal.md - Why. The API stores effective availability as `(status, seq)` with status only `out` or `doubt`, so an injury and a suspension are indistinguishable after submission. `optimizer.pick_xi` returns the starters and `ALTERNATIVES = 2` ranked alternatives per position, drawn from players with a P(start) above 0 (so a doubtful bench player is already listed when ranked, an `out` player never is). `picking.pick` builds the explanation `facts` from the XI and those alternatives only, `_render` looks every listed player up in `facts`, and `Pipeline.explain` requires the model's explanations to cover exactly the `facts` ids. `feed.prediction` returns shared `XI` and `facts` objects by reference. The UI renders alternatives as text without actions. The API's in-memory availability is keyed by session, match and club.
 
-The design changes the prediction/alternatives contract and spans backend state, selection, API, the Razor/HTMX UI, and `ARCHITECTURE.md`.
+The design changes the prediction/alternatives contract and spans backend state, picking, explanations, the API, the Razor/HTMX UI and `ARCHITECTURE.md`.
 
 ## Goals / Non-Goals
 
@@ -12,36 +12,48 @@ The design changes the prediction/alternatives contract and spans backend state,
 
 - Preserve the deterministic optimizer's XI and existing availability semantics while allowing a coach to explicitly keep eligible injured or doubtful non-starters visible as alternatives.
 - Retain the news kind needed to distinguish injury and doubt from suspension.
-- Return at most four alternatives per position and persist explicit selections per session, match, and club.
+- Return at most four alternatives per position, refusing a selection when the list is full, and keep explicit selections per session, match and club.
 - Make alternative selection a distinct UI/API operation from team-news submission.
+- Give every listed alternative, manual or natural, a grounded explanation and a visible status.
 
 **Non-Goals:**
 
-- Clearing or changing injury, doubt, or suspension status.
+- Clearing or changing injury, doubt or suspension status.
 - Allowing suspended players to be selected.
 - Promoting a selected alternative into the starting XI or changing formation.
 - Durable storage across API restarts or sharing an analyst's selections across browser sessions.
+- Exposing the operation through the MCP adapter (it stays at its four tools) or adding telemetry beyond the existing lineup span.
 
 ## Decisions
 
-1. **Use a dedicated alternative-selection operation rather than team news.** Add a focused API operation that accepts the match, club, session, player, and include/remove intent and returns the updated lineup. Reusing `/team_news` would incorrectly imply a new status update and could overwrite the player's actual news. The UI calls it through HTMX and swaps only the lineup fragment.
+1. **Dedicated alternative-selection operation, not team news.** `POST /alternatives` takes the `PredictRequest` fields (match, club, session, mode, language, inheriting the `session_id` length limit), a `player_id` and `included` (true to include, false to remove), and returns the updated `LineupOut`. It sets state rather than toggling, so repeating a request is harmless. Reusing `/team_news` would imply a status update and could overwrite the player's real news. The UI calls it through HTMX and swaps only the lineup fragment. Errors: 404 for an unknown match; 422 with a message for a club not in the match, a player not of the club, a player in the XI, a player with no injury or doubt news (including a suspended one), or an include when the position already lists four alternatives and the player is not one of them. Nothing is ever pushed out of the list to make room. Removal never checks eligibility, so a stale selection can always be cleared, and removing an absent selection is a no-op.
 
-2. **Preserve the originating team-news kind with effective availability.** Store the kind alongside status and sequence for both shared feed events and per-session news. Merge shared and personal entries using the existing sequence precedence, carrying the winning kind. This is required to reject suspension while allowing injury or doubt; alternatives considered were exposing all `out` players (which would allow suspended players) or guessing from text (which would be unreliable).
+2. **Store the news kind, derive status from it.** Availability entries become `(kind, seq)` in the feed's shared state and in `State.availability`; status comes from `STATUS_OF_KIND`. `merge` keeps latest-sequence precedence (personal wins a tie, as today) and returns the winning `(kind, seq)`; callers that need statuses (`pick`, `p_start_scores`) derive them from the merged result. The call sites and tests that change are named in tasks (ingest, `team_news`, `state`, `test_ingest`, `test_api`). The feed log's own `kind` field (`news`/`restart`) is untouched.
 
-3. **Keep optimizer output separate from manual alternatives.** Continue calculating the XI and the natural ranked alternatives from availability as today, then overlay the session's explicit choices on the alternatives only. Never feed an override into P(start) scoring or the MILP. Rank natural candidates by the existing score and tie-break rules. When a manual choice is added to a full position list, include it and remove the lowest-ranked current alternative; store the resulting explicit selection state consistently with the four-player limit. A manual removal returns that position to its natural ranked list.
+3. **Natural alternatives become four; manual choices overlay them.** `ALTERNATIVES` rises to 4 (still non-out players with a P(start) above 0, ranked by score then player id), so the xi-optimizer spec is modified. The XI never sees a selection: selections are not passed to P(start) scoring or the MILP. The overlay runs in `picking` next to `pick`, on whichever XI the request uses (stored or freshly picked), and builds **new** alternatives and `facts` collections, never touching the shared stored objects. Rules, applied per position:
+   - A selection is **valid** when its player's latest effective kind is injury or doubt, the player is not in the XI, and the player is of that position. Invalid selections are ignored for the response (not deleted).
+   - The list is the natural ranked entries followed by valid selections not already natural, each marked `included`. A doubtful player who is already a natural alternative stays in place with `included` true; removing them clears the flag and they stay listed by rank.
+   - The list never exceeds four and no entry is displaced. A new selection that would be the fifth is refused at write time (Decision 1). If natural entries later grow so that stored selections no longer fit (a recovered player ranks in), selections beyond four are left out of the response in player-id order and kept, like any other selection that is not currently shown.
+   - Manual injured players have P(start) 0 and a doubtful one keeps its scored value; their order among manual entries is by player id.
 
-4. **Return eligible candidates and selection state with the lineup.** Add a response collection for non-starting players whose latest effective team-news kind is injury or doubt, including identity, position, kind, and whether each is manually included. Exclude suspended players. This gives the UI actionable candidates without inventing player data or requiring it to reconstruct availability.
+4. **Explanations cover manual alternatives.** The overlay's `facts` include each manual player with status `out` or `doubt`, so `_render` and the model's exact-coverage check still hold. Template `explain` gains an `out` branch that says the player is injured or unavailable and not expected to start, instead of "Likely starter". The explainer instructions gain a rule for `out`, and the grounding check accepts unavailability wording for status `out` instead of counting it as a failure. A changed selection changes `facts`, so it is a new explanation cache key and may cost one model call; that is accepted.
 
-5. **Scope selections by the existing session context.** Store selections in memory under `(session_id, match_id, club)` and apply them to every subsequent prediction in that context. Other sessions and match/club contexts remain independent. A newer effective suspension makes a player ineligible and removes them from the returned selected alternatives; restart clears the in-memory selections with the rest of API state.
+5. **Return status and candidates with the lineup.** `PlayerOut` gains `status` (`available`, `doubt` or `out`, taken from `facts`), so the UI can mark any alternative as injured or doubtful without joining. The response also carries `candidates`: non-starting players whose latest effective kind is injury or doubt, each with id, name, number, position, kind and `included`. Suspended players are not candidates. The UI only offers actions for candidates.
+
+6. **Selections are session state, filtered on every read.** `State` holds `selections[(session_id, match_id, club)]`, an immutable set of player ids, replaced copy-on-write under `s.lock` like `availability`; an empty set removes the key. The write validates eligibility from the shared plus personal availability and the XI of the path the request would use, advisory only (the feed state has its own lock), and the read-time filter in Decision 3 is what enforces eligibility. A selection that stops being valid (newer suspension, the player recovering, a starter's injury promoting them into the XI, a feed lap reset) disappears from the response but stays stored, and returns if the player becomes valid again; removal still works. `State.reset()` clears selections. `lineup.source` keeps its meaning: `personal` only when the session has news of its own, so a session with only selections overlays a copy of the stored prediction and does not re-run the optimizer.
+
+7. **Analyst mode only.** The selection controls render in analyst mode. Fan mode, which hides numbers, shows the alternatives and their status but no controls. The browser session is the existing session cookie (30 days), so "browser session" in the specs means that cookie.
 
 ## Risks / Trade-offs
 
-- [News kind must survive shared/personal precedence] -> Carry kind with each availability entry and test both feed and user submissions, including latest-event-wins behavior.
-- [A full four-player list can displace an existing candidate] -> Use deterministic score and player-id ordering for the displaced candidate and test replacement at capacity.
-- [Concurrent alternative actions could overwrite each other] -> Validate and update session selections under the existing state lock; keep optimizer work outside the lock where possible.
-- [Selections are lost when the API restarts] -> This matches the existing in-memory session availability contract; persistent storage is out of scope.
-- [UI catalog could imply a suspended player is available] -> Populate candidate actions only from the API's eligible injured/doubt candidate collection and visibly retain their status when shown.
+- [News kind must survive shared/personal precedence] -> Carry kind with each availability entry and test both feed and user submissions, including latest-event-wins and a same-sequence tie.
+- [Overlay mutating shared stored objects] -> Build new alternatives and facts; a test proves another session's stored prediction is unchanged.
+- [Raising natural alternatives to 4 shows more doubtful players to every session] -> Intended by "up to four"; the ranked list still excludes out players.
+- [Concurrent selection writes] -> Copy-on-write under the existing state lock; the optimizer is not run under the lock for selection writes.
+- [Selection state outlives eligibility] -> Filter on read, always allow removal, test suspension, recovery and promotion.
+- [Selections are lost when the API restarts] -> Matches the in-memory session availability contract; persistence is out of scope.
+- [Each change costs a possible model call] -> Accepted; failure falls back to templates as today.
 
 ## Migration Plan
 
-No data migration is required because state is in memory and is reset on restart. Deploy the API and UI together so the UI's selection action and candidate rendering use the updated API contract. Rollback by reverting the API and UI changes together; no persisted records need cleanup.
+No data migration is required because state is in memory and is reset on restart. Deploy the API first; it only adds fields, so the old UI keeps working, then the UI that uses the new action. Rollback by reverting both; no persisted records need cleanup.

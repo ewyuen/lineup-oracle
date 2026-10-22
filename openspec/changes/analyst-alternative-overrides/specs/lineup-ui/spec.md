@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Alternatives
-The page SHALL show, for each position line, up to four alternatives returned by the API, none of whom is in the starting XI. It SHALL identify when an alternative is still injured or doubtful and provide a way to add eligible injured or doubtful non-starters to the alternatives without changing their status or the starting XI.
+The page SHALL show, for each position line, up to four alternatives returned by the API, none of whom is in the starting XI. It SHALL identify, from the status the API returns, when an alternative is still injured or doubtful and, in analyst mode, provide a way to add eligible injured or doubtful non-starters to the alternatives without changing their status or the starting XI.
 
 #### Scenario: Alternatives listed
 - **WHEN** a predicted XI is shown
@@ -32,7 +32,11 @@ The analyst SHALL be able to add or remove an injured or doubtful non-starter fr
 
 #### Scenario: The position already has four alternatives
 - **WHEN** the analyst adds an eligible player to a position with four alternatives
-- **THEN** the new player appears in the list and the lowest-ranked alternative is displaced
+- **THEN** the page shows a message that the position is full, the list is unchanged, and the player is not added
+
+#### Scenario: Fan mode has no controls
+- **WHEN** the page is in fan mode
+- **THEN** alternatives and their injury or doubt status are shown, and no add or remove action is offered
 
 #### Scenario: Suspended players cannot be selected
 - **WHEN** a player is suspended

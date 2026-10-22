@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Predict a lineup
-The service SHALL predict a club's starting XI for a match. It SHALL score players using only the club's XIs from earlier matchdays, apply the shared availability from the news feed together with the availability submitted for that match, club and session (the later event winning for a player), and pick the XI with the optimizer; a session with no submitted news SHALL receive the stored prediction unless it has a manual alternatives selection. The response SHALL contain the formation, 11 players each with position, `p_start` and an explanation, up to 4 alternatives per position, selectable non-starting candidates whose latest effective news is injury or doubt, and `llm_used`, which SHALL be true only when the explanations were written by the model. Each candidate SHALL include its player identity, position, availability kind, and whether it is manually included. The request SHALL carry a club, a match id, a mode (analyst or fan) and a language (en, es or zh-Hant), and an invalid value SHALL be rejected with 422. The mode and language SHALL shape the explanations when the model is used.
+The service SHALL predict a club's starting XI for a match. It SHALL score players using only the club's XIs from earlier matchdays, apply the shared availability from the news feed together with the availability submitted for that match, club and session (the later event winning for a player), and pick the XI with the optimizer; a session with no submitted news SHALL receive the stored prediction, to which any manual alternatives selection SHALL be applied on a copy so other sessions' predictions are unchanged. The response SHALL contain the formation, 11 players each with position, `p_start`, a status (available, doubt or out) and an explanation, up to 4 alternatives per position with the same fields, selectable non-starting candidates whose latest effective news is injury or doubt, and `llm_used`, which SHALL be true only when the explanations were written by the model. Every listed player, including a manually included one, SHALL have an explanation, and the explanation of an injured player SHALL say so instead of calling them a likely starter. Each candidate SHALL include its player id, name, number, position, availability kind, and whether it is manually included. The request SHALL carry a club, a match id, a mode (analyst or fan) and a language (en, es or zh-Hant), and an invalid value SHALL be rejected with 422. The mode and language SHALL shape the explanations when the model is used.
 
 #### Scenario: Prediction shape
 - **WHEN** a lineup is predicted for a club in a match
@@ -40,7 +40,7 @@ The service SHALL predict a club's starting XI for a match. It SHALL score playe
 ## ADDED Requirements
 
 ### Requirement: Manage session-scoped alternative selections
-The service SHALL let a session manually include or remove a non-starting player whose latest effective team-news kind is injury or doubt from the alternatives for that match and club. This operation SHALL NOT change the player's availability or the predicted XI. Suspended players SHALL NOT be eligible.
+The service SHALL let a session manually include or remove a non-starting player whose latest effective team-news kind is injury or doubt from the alternatives for that match and club, through `POST /alternatives` with the prediction request fields, a player id and `included` (true or false), returning the updated lineup. Repeating a request SHALL leave the same state. This operation SHALL NOT change the player's availability or the predicted XI. Suspended players SHALL NOT be eligible. An unknown match SHALL be rejected with 404. A club not in the match, a player not of the club, a starter, a player without injury or doubt news, a suspended player, or an include when the position already lists four alternatives and the player is not one of them SHALL be rejected with 422 and a message, without changing any state. A removal SHALL always be accepted and removing an absent selection SHALL change nothing. A stored selection that is not currently valid (suspended, recovered or in the XI) SHALL be left out of the response and kept until removed.
 
 #### Scenario: Include an injured player
 - **WHEN** the session includes an injured non-starter in alternatives
@@ -50,17 +50,34 @@ The service SHALL let a session manually include or remove a non-starting player
 - **WHEN** the session includes a doubtful non-starter in alternatives
 - **THEN** the player appears in the alternatives for their position and remains doubtful
 
+#### Scenario: Include a player who is already a natural alternative
+- **WHEN** the session includes a doubtful non-starter who already ranks among the position's alternatives
+- **THEN** the player stays listed in rank order, is marked manually included, and no other alternative is displaced
+
 #### Scenario: Remove a manual selection
 - **WHEN** the session removes a manual selection
-- **THEN** the player is no longer forced into the alternatives and the ranked alternatives are restored
+- **THEN** the player is no longer marked included, is listed only if they rank among the position's natural alternatives, and the other selections are kept
+
+#### Scenario: Repeating a request
+- **WHEN** the same include or remove request is sent twice
+- **THEN** the second response equals the first and no error is returned
+
+#### Scenario: Ineligible player is rejected
+- **WHEN** the session includes a starter, a player with no injury or doubt news, or a player of another club
+- **THEN** the response is 422 and no state changes
+
+
+#### Scenario: Selection became a starter
+- **WHEN** a selected doubtful player is promoted into the XI by a starter's injury
+- **THEN** the player is not listed as an alternative, and the session can still remove the selection
 
 #### Scenario: Suspended player is rejected
 - **WHEN** the session attempts to include a suspended player
 - **THEN** the service rejects the request without changing availability, the XI, or any alternatives selection
 
 #### Scenario: Four alternatives per position
-- **WHEN** a selected eligible player is added to a position that already has four alternatives
-- **THEN** the newly selected player takes a place from the lowest-ranked alternative and no more than four are returned for that position
+- **WHEN** a selected eligible player is added to a position that already lists four alternatives and is not one of them
+- **THEN** the response is 422 with a message, the four alternatives and all selections are unchanged, and no more than four are ever returned for a position
 
 #### Scenario: Selection persists only in its session and context
 - **WHEN** an alternative selection is made for one session, match, and club
