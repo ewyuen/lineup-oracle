@@ -38,5 +38,5 @@
 
 ## 7. Verify and approve
 
-- [ ] 7.1 Run the full suite (`python -m pytest -q` from `backend/`, with and without `LINEUP_PG_URL`) and `openspec validate player-history-graph-rag --strict`; verify both are green, and run one question through the API end to end.
+- [x] 7.1 Run the full suite (`python -m pytest -q` from `backend/`, with and without `LINEUP_PG_URL`) and `openspec validate player-history-graph-rag --strict`; verify both are green, and run one question through the API end to end.
 - [ ] 7.2 Human approval gate: summarize results, then stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR from `feature/player-history-graph-rag` and merge it.
