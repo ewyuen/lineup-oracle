@@ -42,7 +42,7 @@ def create_server(client_factory: Callable[[], httpx.AsyncClient] = _default_cli
         match_id: str, club: str, player_id: str | None = None, kind: str | None = None, text: str | None = None,
         mode: str = "analyst", language: str = "en", session_id: str = "default",
     ) -> dict:
-        """Submit team news (kind: injury, suspension or doubt, for a player id) and get the updated lineup."""
+        """Submit team news and get the lineup: a player id and a kind (injury, suspension or doubt), or a text of at most 100 characters (a status, or a line posted to the shared news; see `news` in the answer)."""
         body = {"match_id": match_id, "club": club, "player_id": player_id, "kind": kind, "text": text, "mode": mode, "language": language, "session_id": session_id}
         return await call("POST", "/team_news", body)
 

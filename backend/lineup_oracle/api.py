@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
@@ -27,6 +28,8 @@ Mode = Literal["analyst", "fan"]
 Language = Literal["en", "es", "zh-Hant"]
 Kind = Literal["injury", "suspension", "doubt"]
 
+POST_INTERVAL = 10  # seconds a session must wait between posted lines
+
 tracer = trace.get_tracer(__name__)  # no-op unless the Azure Monitor distro set a provider
 
 
@@ -41,7 +44,7 @@ class PredictRequest(BaseModel):
 class TeamNewsRequest(PredictRequest):
     player_id: str | None = None
     kind: Kind | None = None
-    text: str | None = None
+    text: str | None = Field(None, max_length=100)
 
 
 class PlayerOut(BaseModel):
@@ -53,6 +56,13 @@ class PlayerOut(BaseModel):
     explanation: str
 
 
+class NewsOut(BaseModel):
+    outcome: Literal["applied", "posted"]
+    club: str
+    player_name: str | None = None
+    kind: str | None = None
+
+
 class LineupOut(BaseModel):
     match_id: str
     club: str
@@ -62,6 +72,7 @@ class LineupOut(BaseModel):
     llm_used: bool
     mode: Mode
     language: Language
+    news: NewsOut | None = None
 
 
 def _match(state: State, match_id: str):
@@ -109,7 +120,7 @@ def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], club
     )
 
 
-def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> FastAPI:
+def create_app(state: State | None = None, pipeline: Pipeline | None = None, clock=time.monotonic) -> FastAPI:
     setup_telemetry(os.environ)
     # Looked up on the module: the FastAPI instrumentation replaces fastapi.FastAPI when it is switched on.
     @asynccontextmanager
@@ -124,6 +135,9 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
     app.state.lineup = state or State.load()
     app.state.pipeline = pipeline or Pipeline.from_env()
     app.state.feed = Feed(app.state.lineup, app.state.pipeline)
+    # shortcut: the map grows with the number of sessions and is lost on restart; use a bounded or shared store if the API runs several replicas
+    last_post: dict[str, float] = {}
+    post_lock = threading.Lock()
 
     @app.exception_handler(RequestValidationError)
     def bad_request(_: Request, err: RequestValidationError) -> JSONResponse:
@@ -153,18 +167,21 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
             })
         return {"match_id": match_id, "matchday": meta["matchday"], "clubs": clubs}
 
+    def current_lineup(req: PredictRequest):
+        """The XI and facts this session sees: the stored one, or a pick with its own news merged over the shared."""
+        feed: Feed = app.state.feed
+        personal = app.state.lineup.availability.get((req.session_id, req.match_id, req.club))
+        if personal is None:  # no news of its own: read the stored XI
+            return _http(feed.prediction, req.match_id, req.club)
+        return _http(pick, app.state.lineup, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), personal))
+
     @app.post("/predict_lineup", response_model=LineupOut)
     def predict_lineup(req: PredictRequest) -> LineupOut:
         with tracer.start_as_current_span("lineup.predict") as span:
             span.set_attributes({"match_id": req.match_id, "club": req.club})
             s: State = app.state.lineup
-            feed: Feed = app.state.feed
-            personal = s.availability.get((req.session_id, req.match_id, req.club))
-            span.set_attribute("lineup.source", "stored" if personal is None else "personal")
-            if personal is None:  # no news of its own: read the stored XI
-                xi, facts = _http(feed.prediction, req.match_id, req.club)
-            else:
-                xi, facts = _http(pick, s, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), personal))
+            span.set_attribute("lineup.source", "stored" if s.availability.get((req.session_id, req.match_id, req.club)) is None else "personal")
+            xi, facts = current_lineup(req)
             return _render(app.state.pipeline, req, xi, facts, s.roster.clubs[req.club])
 
     @app.post("/team_news", response_model=LineupOut)
@@ -172,7 +189,8 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
         with tracer.start_as_current_span("lineup.team_news") as span:
             span.set_attributes({"match_id": req.match_id, "club": req.club})
             s: State = app.state.lineup
-            player_id, kind = req.player_id, req.kind
+            player_id, kind, club_name = req.player_id, req.kind, req.club
+            news: NewsOut | None = None
             if player_id is not None and kind is not None:
                 span.set_attribute("news.input", "structured")
             else:
@@ -183,21 +201,41 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None) -> 
                 club = s.roster.clubs.get(req.club)
                 if club is None or req.club not in (meta["home_club"], meta["away_club"]):
                     raise HTTPException(422, f"Club {req.club!r} does not play in match {req.match_id!r}")
+                opponent = s.roster.clubs[meta["away_club"] if req.club == meta["home_club"] else meta["home_club"]]
                 try:
-                    player_id, kind = app.state.pipeline.interpret(req.text, club)  # model call, before the lock
+                    read = app.state.pipeline.read(req.text, club, s.roster.clubs, opponent)  # model call, before the lock
                 except NewsRejected as err:
                     raise HTTPException(422, str(err)) from err
+                span.set_attribute("news.outcome", read.outcome)
+                if read.outcome == "posted":
+                    with post_lock:  # check and update together, so two simultaneous posts cannot both pass
+                        now = clock()
+                        if now - last_post.get(req.session_id, -POST_INTERVAL) < POST_INTERVAL:
+                            raise HTTPException(429, f"You can post one line every {POST_INTERVAL} seconds; try again shortly.")
+                        last_post[req.session_id] = now
+                        app.state.feed.post(req.match_id, req.club, read.texts)
+                    xi, facts = current_lineup(req)
+                    out = _render(app.state.pipeline, req, xi, facts, club)
+                    out.news = NewsOut(outcome="posted", club=req.club, player_name=read.player.name if read.player else None)
+                    return out
+                player_id, kind, club_name = read.player.id, read.kind, read.club
+                news = NewsOut(outcome="applied", club=club_name, player_name=read.player.name, kind=kind)
             span.set_attribute("news.kind", kind)
             with s.lock:  # one writer at a time, so two submits cannot overwrite each other
                 _match(s, req.match_id)
-                club = s.roster.clubs.get(req.club)
+                club = s.roster.clubs.get(club_name)
                 if club is None or player_id not in {p.id for p in club.players}:
-                    raise HTTPException(422, f"Player {player_id!r} does not belong to club {req.club!r}")
+                    raise HTTPException(422, f"Player {player_id!r} does not belong to club {club_name!r}")
                 feed: Feed = app.state.feed
-                updated = {**s.availability.get((req.session_id, req.match_id, req.club), {}), player_id: (STATUS_OF_KIND[kind], feed.latest_seq)}
-                xi, facts = _http(pick, s, req.match_id, req.club, merge(feed.shared_availability(req.match_id, req.club), updated))  # raises before any state changes
-                s.availability[(req.session_id, req.match_id, req.club)] = updated
-            return _render(app.state.pipeline, req, xi, facts, s.roster.clubs[req.club])  # model call, after the lock
+                key = (req.session_id, req.match_id, club_name)
+                updated = {**s.availability.get(key, {}), player_id: (STATUS_OF_KIND[kind], feed.latest_seq)}
+                xi, facts = _http(pick, s, req.match_id, club_name, merge(feed.shared_availability(req.match_id, club_name), updated))  # raises before any state changes
+                s.availability[key] = updated
+            if club_name != req.club:  # the status landed on the other club; the response is still the requested club's XI
+                xi, facts = current_lineup(req)
+            out = _render(app.state.pipeline, req, xi, facts, s.roster.clubs[req.club])  # model call, after the lock
+            out.news = news
+            return out
 
     @app.get("/news")
     def get_news(since: int | None = None, match_id: str | None = None, club: str | None = None, language: Language = "en") -> dict:

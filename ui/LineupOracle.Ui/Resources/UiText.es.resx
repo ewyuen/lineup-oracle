@@ -21,8 +21,8 @@
   <data name="Favourite" xml:space="preserve"><value>Favorito</value></data>
   <data name="MarkFavourite" xml:space="preserve"><value>Marcar como favorito</value></data>
   <data name="TeamNews" xml:space="preserve"><value>Noticias del equipo</value></data>
-  <data name="TeamNewsHelp" xml:space="preserve"><value>Indica una lesión, sanción o duda, o escribe una noticia del equipo.</value></data>
-  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>Escribe una noticia del equipo</value></data>
+  <data name="TeamNewsHelp" xml:space="preserve"><value>Indica una lesión, regreso o duda, o publica una noticia breve del equipo (hasta 100 caracteres).</value></data>
+  <data name="TeamNewsPlaceholder" xml:space="preserve"><value>Escribe una noticia del equipo (hasta 100 caracteres)</value></data>
   <data name="Submit" xml:space="preserve"><value>Enviar</value></data>
   <data name="Retry" xml:space="preserve"><value>Reintentar</value></data>
   <data name="Updating" xml:space="preserve"><value>Actualizando...</value></data>
@@ -52,6 +52,11 @@
   <data name="InjuryPast" xml:space="preserve"><value>lesionado</value></data>
   <data name="SuspensionPast" xml:space="preserve"><value>sancionado</value></data>
   <data name="DoubtPast" xml:space="preserve"><value>con duda</value></data>
+  <data name="RecoveredPast" xml:space="preserve"><value>recuperado</value></data>
+  <data name="ClearedPast" xml:space="preserve"><value>sanción cumplida</value></data>
+  <data name="FitPast" xml:space="preserve"><value>declarado apto</value></data>
+  <data name="MarkedUpdatedClub" xml:space="preserve"><value>{0} ({2}) marcado {1}; alineación actualizada</value></data>
+  <data name="NewsPosted" xml:space="preserve"><value>Publicado en las noticias</value></data>
   <data name="NoFixtures" xml:space="preserve"><value>No hay partidos disponibles.</value></data>
   <data name="NoLineup" xml:space="preserve"><value>Elige un partido y un club para ver la alineación.</value></data>
   <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>Se muestran probabilidades y el origen de la explicación.</value></data>

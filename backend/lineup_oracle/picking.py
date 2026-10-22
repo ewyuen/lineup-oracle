@@ -5,7 +5,7 @@ from .optimizer import POSITIONS, pick_xi
 from .scoring import RECENT_MATCHES, p_start_scores, recent_xis
 from .state import State
 
-STATUS_OF_KIND = {"injury": "out", "suspension": "out", "doubt": "doubt"}
+STATUS_OF_KIND = {"injury": "out", "suspension": "out", "doubt": "doubt", "recovered": "available", "cleared": "available", "fit": "available"}
 
 
 def pick(state: State, match_id: str, club_name: str, availability: dict[str, str]):

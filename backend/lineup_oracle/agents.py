@@ -6,12 +6,21 @@ from agent_framework import Agent
 from pydantic import BaseModel, ConfigDict
 
 
+class Person(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    player_id: str | None = None  # set by the model only for a player of the selected club's roster
+
+
 class ParsedNews(BaseModel):
     model_config = ConfigDict(extra="ignore")  # anything beyond these fields is dropped, so the model cannot add an XI
 
     club: str | None = None
     player_id: str | None = None
-    kind: Literal["injury", "suspension", "doubt"] | None = None
+    kind: Literal["injury", "suspension", "doubt", "recovered", "cleared", "fit"] | None = None
+    persons: list[Person] = []
+    translations: dict[str, str] | None = None  # en, es, zh-Hant; used only when the line is posted
 
 
 class PlayerExplanation(BaseModel):
@@ -28,11 +37,16 @@ class Explanations(BaseModel):
 
 
 PARSER_INSTRUCTIONS = (
-    "You read one line of football team news and extract who is affected. "
+    "You read one line of football team news, in any language, and extract who and what it is about. "
     "You receive JSON with the club, its roster (id, name, number, position) and the text. "
     "Answer with JSON only: {\"club\": the club the text is about or null, \"player_id\": the roster id of the one player "
-    "the text is about or null, \"kind\": \"injury\" (hurt or ruled out), \"suspension\" (banned or red card) or "
-    "\"doubt\" (fitness doubt, late test) or null}. "
+    "of this roster the text is about or null, \"kind\": \"injury\" (hurt or ruled out), \"suspension\" (banned or red card), "
+    "\"doubt\" (fitness doubt, late test), \"recovered\" (injury healed, back in training), \"cleared\" (suspension served) "
+    "or \"fit\" (doubt resolved, declared fit) or null, "
+    "\"persons\": [{\"name\": every person the text names, exactly as written, \"player_id\": the roster id when the person is "
+    "a player of this roster, else null}] (an owner, buyer or coach is a person too; an empty list if the text names no one), "
+    "\"translations\": {\"en\": the line in English, \"es\": in Spanish, \"zh-Hant\": in Traditional Chinese; keep the original "
+    "wording and every name verbatim, add nothing}}. "
     "Use only ids from the roster. If the text names no player of this roster or no clear kind, use null. Never invent ids."
 )
 
