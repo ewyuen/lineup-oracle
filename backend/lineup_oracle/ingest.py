@@ -5,6 +5,9 @@ import threading
 import time
 from collections import deque
 
+from opentelemetry import trace
+
+from .checks import parse_correct
 from .picking import pick, statuses
 from .pipeline import NewsRejected
 from .state import State
@@ -14,6 +17,7 @@ POLL_INTERVAL = 10  # seconds between browser polls; the UI reads its own copy o
 FEATURED_MATCHDAY = 1
 LOG_SIZE = 50
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)  # no-op unless the Azure Monitor distro set a provider
 
 
 class Feed:
@@ -64,11 +68,18 @@ class Feed:
             item = self.items[self._pos]
             self._pos += 1
             generation = self.generation
+        # The ticker thread has no request, so this is a root span of its own.
+        with tracer.start_as_current_span("news.step") as span:
+            span.set_attributes({"match_id": item.match_id, "club": item.club, "news.parse_correct": False, "news.applied": False})
+            self._deliver(item, generation, span)
+
+    def _deliver(self, item, generation: int, span) -> None:
         key = (item.match_id, item.club)
-        text = item.payload["text"]  # the labels in the payload are for the evals, not read here
+        text = item.payload["text"]  # the labels in the payload are compared with the answer after the parse, never given to the parser
         try:
             club = self.state.roster.clubs[item.club]
             player_id, kind = self.pipeline.interpret(text, club)  # model call, no lock held
+            span.set_attribute("news.parse_correct", parse_correct(item, club, player_id, kind))
             if player_id not in {p.id for p in club.players}:
                 raise NewsRejected(f"Player {player_id!r} does not belong to club {item.club!r}")
             with self.lock:
@@ -86,6 +97,7 @@ class Feed:
                 return
             player_id, kind, before, xi, facts = outcome
             seq = self._append(**entry, applied=True)
+            span.set_attribute("news.applied", True)
             self._shared[key] = {**before, player_id: (kind, seq)}
             self._predictions[key] = (xi, facts, seq)
 
