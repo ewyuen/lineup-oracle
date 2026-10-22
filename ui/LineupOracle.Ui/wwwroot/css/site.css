@@ -114,6 +114,10 @@ h3 { font-size: 1rem; }
 .alternatives li { display: flex; align-items: baseline; gap: var(--space-xs); }
 .alternatives .shirt-number { font-size: 0.75rem; }
 .alternatives .probability { margin: 0; font-size: 0.7rem; }
+.candidates form { margin: 0; }
+.status-badge { padding: 0 var(--space-xs); border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600; background: var(--surface); color: var(--text); border: 1px solid currentColor; }
+.status-out { color: var(--danger, #b3261e); }
+.status-doubt { color: var(--warning, #8a5a00); }
 .empty-lineup { min-height: 12rem; display: grid; align-content: center; text-align: center; }
 .htmx-swapping { opacity: 0.4; transition: opacity 150ms ease-out; }
 
