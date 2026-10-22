@@ -24,11 +24,11 @@ The service SHALL return, for a match id, the recorded starting XI and formation
 - **THEN** the response is 404 with a message naming the match id
 
 ### Requirement: Predict a lineup
-The service SHALL predict a club's starting XI for a match. It SHALL score players using only the club's XIs from earlier matchdays, apply the shared availability from the news feed together with the availability submitted for that match, club and session (the later event winning for a player), and pick the XI with the optimizer; a session with no submitted news SHALL receive the stored prediction, to which any manual alternatives selection SHALL be applied on a copy so other sessions' predictions are unchanged. The response SHALL contain the formation, 11 players each with position, `p_start`, a status (available, doubt or out) and an explanation, up to 2 alternatives per position with the same fields, selectable non-starting candidates whose latest effective news is injury or doubt, and `llm_used`, which SHALL be true only when the explanations were written by the model. Every listed player, including a manually included one, SHALL have an explanation, and the explanation of an injured player SHALL say so instead of calling them a likely starter. Each candidate SHALL include its player id, name, number, position, availability kind, and whether it is currently shown in the alternatives as a manual selection (a stored selection hidden by the two-slot limit is not). The request SHALL carry a club, a match id, a mode (analyst or fan) and a language (en, es or zh-Hant), and an invalid value SHALL be rejected with 422. The mode and language SHALL shape the explanations when the model is used.
+The service SHALL predict a club's starting XI for a match. It SHALL score players using only the club's XIs from earlier matchdays, apply the shared availability from the news feed together with the availability submitted for that match, club and session (the later event winning for a player), and pick the XI with the optimizer; a session with no submitted news SHALL receive the stored prediction, to which any manual alternatives selection SHALL be applied on a copy so other sessions' predictions are unchanged. The response SHALL contain the formation, 11 players each with position, `p_start`, a status (available, doubt or out) and an explanation, up to 2 alternatives per position with the same fields, unavailable non-starting candidates whose latest effective news is injury, doubt or suspension, and `llm_used`, which SHALL be true only when the explanations were written by the model. Every listed player, including a manually included one, SHALL have an explanation, and the explanation of an injured player SHALL say so instead of calling them a likely starter. Each candidate SHALL include its player id, name, number, position, availability kind (injury, doubt or suspension), and whether it is currently shown in the alternatives as a manual selection (a stored selection hidden by the two-slot limit is not, and a suspended candidate never is). The request SHALL carry a club, a match id, a mode (analyst or fan) and a language (en, es or zh-Hant), and an invalid value SHALL be rejected with 422. The mode and language SHALL shape the explanations when the model is used.
 
 #### Scenario: Prediction shape
 - **WHEN** a lineup is predicted for a club in a match
-- **THEN** the response has a formation, 11 distinct players of that club with `p_start` between 0 and 1, up to 2 alternatives per position, eligible non-starting injured or doubtful candidates, and a boolean `llm_used`
+- **THEN** the response has a formation, 11 distinct players of that club with `p_start` between 0 and 1, up to 2 alternatives per position, non-starting injured, doubtful or suspended candidates, and a boolean `llm_used`
 
 #### Scenario: Own XI is never used
 - **WHEN** a lineup is predicted for a match on matchday 4
@@ -57,6 +57,10 @@ The service SHALL predict a club's starting XI for a match. It SHALL score playe
 #### Scenario: Manual alternatives do not change the XI
 - **WHEN** a session has manually included an eligible injured or doubtful player
 - **THEN** its next prediction preserves the same XI and availability while reflecting that selection in the alternatives
+
+#### Scenario: Suspended player is a candidate
+- **WHEN** a non-starter's latest effective news is a suspension
+- **THEN** the response lists the player among the candidates with kind `suspension` and `included` false
 
 ### Requirement: Template explanations
 Each predicted player SHALL carry, when the model is not used, a short explanation built from a fixed English template from the player's data, naming the main reasons (recent starts, rating, availability). In analyst mode the template SHALL name the player's `p_start`; in fan mode it SHALL NOT show a `p_start` figure.
@@ -173,7 +177,7 @@ The service SHALL let any caller restart the shared feed, which resets and begin
 - **THEN** the next poll of every caller reports a restart marker
 
 ### Requirement: Manage session-scoped alternative selections
-The service SHALL let a session manually include or remove a non-starting player whose latest effective team-news kind is injury or doubt from the alternatives for that match and club, through `POST /alternatives` with the prediction request fields, a player id and `included` (true or false), returning the updated lineup. Repeating a request SHALL leave the same state. This operation SHALL NOT change the player's availability or the predicted XI. Suspended players SHALL NOT be eligible. An unknown match SHALL be rejected with 404. A club not in the match, a player not of the club, a starter, a player without injury or doubt news or a suspended player SHALL be rejected with 422 and a message, without changing any state. A removal SHALL always be accepted and removing an absent selection SHALL change nothing. No more than 2 alternatives per position SHALL be returned: manual selections SHALL displace the lowest-ranked alternative, and when eligible manual selections exceed the available slots, the most recently selected players SHALL take priority. Natural alternatives SHALL be listed first in rank order, then manual selections oldest first. An include of a player already shown SHALL change nothing; an include of a stored but hidden player SHALL make it the newest selection. A stored selection that is not currently valid (suspended, recovered or in the XI) SHALL be left out of the response and SHALL be discarded the next time that session changes a selection for the same match and club.
+The service SHALL let a session manually include or remove a non-starting player whose latest effective team-news kind is injury or doubt from the alternatives for that match and club, through `POST /alternatives` with the prediction request fields, a player id and `included` (true or false), returning the updated lineup. Repeating a request SHALL leave the same state. This operation SHALL NOT change the player's availability or the predicted XI. Suspended players SHALL NOT be eligible, although they stay listed as candidates. An unknown match SHALL be rejected with 404. A club not in the match, a player not of the club, a starter, a player without injury or doubt news or a suspended player SHALL be rejected with 422 and a message, without changing any state. A removal SHALL always be accepted and removing an absent selection SHALL change nothing. No more than 2 alternatives per position SHALL be returned: manual selections SHALL displace the lowest-ranked alternative, and when eligible manual selections exceed the available slots, the most recently selected players SHALL take priority. Natural alternatives SHALL be listed first in rank order, then manual selections oldest first. An include of a player already shown SHALL change nothing; an include of a stored but hidden player SHALL make it the newest selection. A stored selection that is not currently valid (suspended, recovered or in the XI) SHALL be left out of the response and SHALL be discarded the next time that session changes a selection for the same match and club.
 
 #### Scenario: Include an injured player
 - **WHEN** the session includes an injured non-starter in alternatives
@@ -229,7 +233,7 @@ The service SHALL let a session manually include or remove a non-starting player
 
 #### Scenario: Candidate kind changes to suspension
 - **WHEN** the latest effective news for a manually included player becomes suspension
-- **THEN** the player is no longer eligible and is omitted from the alternatives and selectable candidates
+- **THEN** the player is no longer eligible and is omitted from the alternatives, and is listed among the candidates with kind `suspension` and `included` false
 
 ### Requirement: Posting is limited per session
 A session SHALL be able to post one line to the news log at most once every 10 seconds. A text submission that would post a line sooner SHALL be rejected with 429 and a message, with no state change and no entry in the log. Applying a status and rejected submissions SHALL NOT count toward the limit, and one session's posts SHALL NOT limit another session.
@@ -256,3 +260,22 @@ A poll SHALL return informational entries like other entries, and an information
 #### Scenario: Posted line in a poll
 - **WHEN** the only new entry for the caller's match and club is an informational entry
 - **THEN** the response contains it and says the displayed club did not change
+
+### Requirement: A suspension is lifted only by a cleared status
+Once a player's latest effective news is a suspension, only a "cleared" status submitted as text SHALL end it. Any other injury, doubt, recovered or fit news for that player, from a structured or a text submission, SHALL be rejected with 422 and a message naming the player, without changing any state. A repeated suspension SHALL be accepted. A shared-feed event that is later than a session's suspension SHALL NOT replace that suspension in that session unless it is a cleared status; a feed suspension SHALL stay in force for a session whose own later injury, doubt, recovered or fit news was rejected.
+
+#### Scenario: Injury news for a suspended player
+- **WHEN** a session submits injury news for a player who is suspended
+- **THEN** the response is 422 naming the player, and the player stays suspended
+
+#### Scenario: Cleared lifts the suspension
+- **WHEN** a session submits a "cleared" text for a suspended player
+- **THEN** the player is available again for that session and may return to the predicted XI
+
+#### Scenario: Feed news does not lift a session's suspension
+- **WHEN** a session has suspended a player and the feed later applies an injury, doubt, recovered or fit event for that player
+- **THEN** that session still sees the player suspended
+
+#### Scenario: Suspension repeated
+- **WHEN** a session submits a suspension for a player who is already suspended
+- **THEN** the response is the same lineup and no error is returned

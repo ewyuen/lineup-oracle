@@ -6,7 +6,7 @@ TBD - created by archiving change agent-pipeline-and-llm. Update Purpose after a
 ## Requirements
 
 ### Requirement: Parse free-text team news
-The service SHALL read a free-text team-news line (at most 100 characters, in any language) into: the persons it names, the club it names if any, an optional status, and the line in English, Spanish and Traditional Chinese. The status SHALL be one of injury, suspension, doubt, recovered (an injury healed), cleared (a suspension served) or fit (a doubt resolved). Injury and suspension SHALL mark a player out, doubt SHALL mark a player doubt, and recovered, cleared and fit SHALL mark a player available. A line that names a player and a status SHALL then go through the same availability path as a structured submission, and a clearing status SHALL replace an earlier "out" or "doubt" for that player, whether it came from the feed or from the same session.
+The service SHALL read a free-text team-news line (at most 100 characters, in any language) into: the persons it names, the club it names if any, an optional status, and the line in English, Spanish and Traditional Chinese. The status SHALL be one of injury, suspension, doubt, recovered (an injury healed), cleared (a suspension served) or fit (a doubt resolved). Injury and suspension SHALL mark a player out, doubt SHALL mark a player doubt, and recovered, cleared and fit SHALL mark a player available. A line that names a player and a status SHALL then go through the same availability path as a structured submission, and a clearing status SHALL replace an earlier "out" or "doubt" for that player, whether it came from the feed or from the same session. A suspended player SHALL be made available only by a cleared status; any other status for a suspended player SHALL be rejected with a message naming the player, and a recovered or fit status for a player who is not injured or doubtful SHALL still be applied as before.
 
 #### Scenario: Injury line
 - **WHEN** a line saying a named player of the club is out with an injury is submitted for that club
@@ -27,6 +27,14 @@ The service SHALL read a free-text team-news line (at most 100 characters, in an
 #### Scenario: Same result as the buttons
 - **WHEN** a free-text line and a structured submission describe the same player and kind
 - **THEN** the returned lineups are identical
+
+#### Scenario: Other status for a suspended player
+- **WHEN** a player is suspended and the text says the player is a fitness doubt or has recovered
+- **THEN** the response is 422 with a message naming the player and the suspension stays
+
+#### Scenario: Suspension served
+- **WHEN** a player is suspended and the text says the player has served the ban
+- **THEN** the player is available again
 
 ### Requirement: Reject news that cannot be trusted
 The service SHALL reject the text, with a message and no state change and no broadcast, when a named person does not resolve to a roster player (message: player not found, naming the person), when the text names no person and no known club, or when the model does not answer in the expected form. A person who is not a player, such as an owner or a buyer, SHALL be treated as a player that was not found.
