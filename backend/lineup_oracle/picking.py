@@ -8,7 +8,9 @@ from .scoring import RECENT_MATCHES, p_start_scores, recent_xis
 from .state import State
 
 STATUS_OF_KIND = {"injury": "out", "suspension": "out", "doubt": "doubt", "recovered": "available", "cleared": "available", "fit": "available"}
-SELECTABLE_KINDS = ("injury", "doubt")  # a suspended player cannot be put in the alternatives
+SELECTABLE_KINDS = ("injury", "doubt")  # a suspended player is listed as a candidate but cannot be put in the alternatives
+VISIBLE_KINDS = SELECTABLE_KINDS + ("suspension",)
+LIFTS_SUSPENSION = ("suspension", "cleared")  # the only news that may follow a suspension
 
 
 def statuses(availability: dict[str, tuple[str, int]]) -> dict[str, str]:
@@ -45,10 +47,15 @@ def pick(state: State, match_id: str, club_name: str, availability: dict[str, st
     return xi, [_fact(p, s, last, availability.get(p.id, "available")) for p, s in listed]
 
 
-def eligible(club, xi, merged: dict[str, tuple[str, int]]) -> dict:
-    """Non-starters whose latest news is an injury or a doubt: the players an analyst may put in the alternatives."""
+def unavailable(club, xi, merged: dict[str, tuple[str, int]]) -> dict:
+    """Non-starters whose latest news is an injury, a doubt or a suspension: the candidates an analyst sees."""
     starters = {p.id for p, _ in xi.players}
-    return {p.id: p for p in club.players if p.id not in starters and merged.get(p.id, ("", 0))[0] in SELECTABLE_KINDS}
+    return {p.id: p for p in club.players if p.id not in starters and merged.get(p.id, ("", 0))[0] in VISIBLE_KINDS}
+
+
+def eligible(club, xi, merged: dict[str, tuple[str, int]]) -> dict:
+    """The candidates an analyst may put in the alternatives: not the suspended ones."""
+    return {i: p for i, p in unavailable(club, xi, merged).items() if merged[i][0] in SELECTABLE_KINDS}
 
 
 def overlay(state: State, match_id: str, club_name: str, xi, facts: list[dict], merged: dict[str, tuple[str, int]], selections):
@@ -62,6 +69,7 @@ def overlay(state: State, match_id: str, club_name: str, xi, facts: list[dict], 
     last = recent[-RECENT_MATCHES:]
     status = statuses(merged)
     scores = p_start_scores(club, recent, status)
+    unavailable_players = unavailable(club, xi, merged)
     cands = eligible(club, xi, merged)
     valid = [i for i in selections if i in cands]
     known = {f["id"]: f for f in facts}
@@ -78,6 +86,6 @@ def overlay(state: State, match_id: str, club_name: str, xi, facts: list[dict], 
     new_facts = [known.get(p.id) or _fact(p, s, last, status.get(p.id, "available")) for p, s in listed]
     candidates = [
         {"id": p.id, "name": p.name, "number": p.number, "position": p.position, "kind": merged[p.id][0], "included": p.id in included}
-        for p in sorted(cands.values(), key=lambda p: (POSITIONS.index(p.position), p.id))
+        for p in sorted(unavailable_players.values(), key=lambda p: (POSITIONS.index(p.position), p.id))
     ]
     return new_xi, new_facts, candidates

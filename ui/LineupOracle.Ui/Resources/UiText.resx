@@ -62,8 +62,9 @@
   <data name="ModeDescriptionAnalyst" xml:space="preserve"><value>Probabilities and explanation source shown.</value></data>
   <data name="ModeDescriptionFan" xml:space="preserve"><value>Names and plain explanations only.</value></data>
   <data name="StatusOut" xml:space="preserve"><value>Injured</value></data>
+  <data name="StatusSuspended" xml:space="preserve"><value>Suspended</value></data>
   <data name="StatusDoubt" xml:space="preserve"><value>Doubtful</value></data>
-  <data name="AlternativeCandidates" xml:space="preserve"><value>Injured or doubtful players</value></data>
+  <data name="AlternativeCandidates" xml:space="preserve"><value>Unavailable players</value></data>
   <data name="AddAlternative" xml:space="preserve"><value>Add to alternatives</value></data>
   <data name="RemoveAlternative" xml:space="preserve"><value>Remove from alternatives</value></data>
 </root>

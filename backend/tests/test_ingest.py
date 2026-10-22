@@ -287,6 +287,26 @@ def test_merge_keeps_the_kind_through_precedence():
     assert merge(personal, shared)["a"] == ("suspension", 5)
 
 
+def test_merge_keeps_a_personal_suspension_against_a_later_feed_event():
+    from lineup_oracle.ingest import merge
+
+    personal = {"a": ("suspension", 3), "b": ("suspension", 3), "c": ("injury", 8)}
+    shared = {"a": ("injury", 5), "b": ("cleared", 5), "c": ("suspension", 2)}
+    merged = merge(shared, personal)
+    assert merged["a"] == ("suspension", 3)  # a feed injury does not end it
+    assert merged["b"] == ("cleared", 5)  # a feed clearing does
+    assert merged["c"] == ("injury", 8)  # the session cleared it earlier, so its later injury stands
+
+
+def test_feed_ignores_news_after_a_shared_suspension(feed, pipe):
+    item = feed.items[0]
+    key = _first_key(feed)
+    player = pipe.answers[item.payload["text"]][0]
+    feed._shared[key] = {player: ("suspension", 1)}
+    feed.step()
+    assert feed.shared_availability(*key)[player][0] == "suspension"
+
+
 def test_feed_keeps_injury_doubt_and_suspension_apart(feed, pipe):
     item = feed.items[0]
     key = _first_key(feed)

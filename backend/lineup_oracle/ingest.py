@@ -8,7 +8,7 @@ from collections import deque
 from opentelemetry import trace
 
 from .checks import parse_correct
-from .picking import pick, statuses
+from .picking import LIFTS_SUSPENSION, pick, statuses
 from .pipeline import NewsRejected
 from .state import State
 
@@ -101,6 +101,9 @@ class Feed:
                 self._append(**entry, applied=False)
                 return
             player_id, kind, before, xi, facts = outcome
+            if self._shared.get(key, {}).get(player_id, ("", 0))[0] == "suspension" and kind not in LIFTS_SUSPENSION:
+                self._append(**entry, applied=False)  # a suspension ends only with a cleared status
+                return
             seq = self._append(**entry, applied=True)
             span.set_attribute("news.applied", True)
             self._shared[key] = {**before, player_id: (kind, seq)}
@@ -168,4 +171,8 @@ class Feed:
 
 def merge(shared: dict[str, tuple[str, int]], personal: dict[str, tuple[str, int]]) -> dict[str, tuple[str, int]]:
     """The winning (kind, seq) per player from the shared and the personal availability: the later event (larger seq) wins, a tie goes to the personal one."""
-    return {p: personal[p] if p in personal and (p not in shared or personal[p][1] >= shared[p][1]) else shared[p] for p in shared.keys() | personal.keys()}
+    out = {p: personal[p] if p in personal and (p not in shared or personal[p][1] >= shared[p][1]) else shared[p] for p in shared.keys() | personal.keys()}
+    for p, entry in out.items():  # a later feed event does not lift a session's suspension
+        if p in personal and personal[p][0] == "suspension" and entry is shared.get(p) and entry[0] not in LIFTS_SUSPENSION:
+            out[p] = personal[p]
+    return out

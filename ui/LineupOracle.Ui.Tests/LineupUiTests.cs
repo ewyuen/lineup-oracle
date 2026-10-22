@@ -731,6 +731,22 @@ public sealed class LineupUiTests
     }
 
     [Fact]
+    public async Task ASuspendedCandidateIsListedWithABadgeAndNoAddAction()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler);
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Contains("Unavailable players", html);
+        Assert.Matches("(?s)Gus Bane.*?Suspended", html);
+        Assert.DoesNotContain("value=\"cand-susp\"", html);
+        Assert.Contains("value=\"cand-injured\"", html);
+        Assert.Contains("value=\"cand-doubt\"", html);
+    }
+
+    [Fact]
     public async Task FanModeShowsAlternativeStatusButNoSelectionControls()
     {
         using var handler = new StubApiHandler();
@@ -1236,11 +1252,12 @@ public sealed class LineupUiTests
                 ["DEF"] = Array.Empty<object>(),
                 ["GK"] = Array.Empty<object>()
             };
-            // Two non-starters have news; a suspended player is never offered. A selected one is listed under its position.
+            // Three non-starters have news; a suspended player is listed but never offered. A selected one is listed under its position.
             var candidates = new[]
             {
                 ("cand-injured", "Pol Hart", 15, "DEF", "injury"),
-                ("cand-doubt", "Ewan Rook", 17, "FWD", "doubt")
+                ("cand-doubt", "Ewan Rook", 17, "FWD", "doubt"),
+                ("cand-susp", "Gus Bane", 21, "MID", "suspension")
             };
             foreach (var (id, name, number, position, kind) in candidates.Where(candidate => selected.Contains(candidate.Item1)))
             {
