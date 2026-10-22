@@ -32,4 +32,4 @@
 
 - [x] 6.1 Update ARCHITECTURE.md (`submit_team_news` text path and `news`, feed entry kinds and `changed`, UI section, telemetry `news.outcome`) and the backend README if it lists the text rules
 - [x] 6.2 Run the full backend and UI test suites and fix failures
-- [ ] 6.3 Human approval gate: summarize results and stop for the user's approval. After approval, run the OpenSpec archive, then open a PR from `feature/flexible-team-news` and merge it
+- [x] 6.3 Human approval gate: summarize results and stop for the user's approval. After approval, run the OpenSpec archive, then open a PR from `feature/flexible-team-news` and merge it

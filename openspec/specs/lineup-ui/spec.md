@@ -36,11 +36,23 @@ Each picked player SHALL have preset buttons for injury, suspension and doubt. P
 - **THEN** the response is only the lineup fragment, not the whole page
 
 ### Requirement: Free-text team news
-The page SHALL have a text box and a submit button that send free-text team news for the selected match and club.
+The page SHALL have a text box and a submit button that send free-text team news for the selected match and club. The box SHALL accept at most 100 characters. After a submission the page SHALL say what happened: that a player's status was updated (naming the player and, when it is not the selected club, the club), or that the line was posted to the news feed.
 
 #### Scenario: Text rejected by the API
-- **WHEN** the API rejects the text with a message
-- **THEN** the message is shown next to the box and the shown XI is unchanged
+- **WHEN** the API rejects the text with a message (for example player not found)
+- **THEN** the message is shown under the box and the shown XI is unchanged
+
+#### Scenario: Status applied
+- **WHEN** the API reports that a status was applied
+- **THEN** the page names the player and the new status, including a clearing status such as recovered, and shows the lineup
+
+#### Scenario: Line posted
+- **WHEN** the API reports that the line was posted
+- **THEN** the page says it was posted to the news feed and the shown XI is unchanged
+
+#### Scenario: Length limit
+- **WHEN** a visitor types in the box
+- **THEN** no more than 100 characters can be entered
 
 ### Requirement: Errors are visible and non-destructive
 When the API answers with an error, the page SHALL show the API's message inline. When the API cannot be reached, the page SHALL show a banner that the service is unavailable. In both cases the last shown XI SHALL stay on screen.
@@ -142,7 +154,7 @@ While an in-page request is pending, the UI SHALL announce that the page is upda
 - **THEN** the busy status does not display a numeric completion percentage or imply measurable progress
 
 ### Requirement: Shared news ticker
-The page SHALL show a ticker of the shared news above the busy status, containing the same feed events for every visitor and selected match and club, with each message shown in that visitor's selected language. Items SHALL move from right to left. The text of each item SHALL be available to assistive technology, an item that was not applied SHALL be visibly marked, and a restart of the feed SHALL show as a marker. With a reduced-motion preference the items SHALL be shown as a static list.
+The page SHALL show a ticker of the shared news above the busy status, containing the same feed events and posted lines for every visitor and selected match and club, with each message shown in that visitor's selected language. Items SHALL move from right to left. The text of each item SHALL be available to assistive technology, a feed item that was not applied SHALL be visibly marked, a posted line SHALL be shown without that mark, and a restart of the feed SHALL show as a marker. With a reduced-motion preference the items SHALL be shown as a static list.
 
 #### Scenario: News arrives
 - **WHEN** a new item is delivered to the feed
@@ -155,6 +167,10 @@ The page SHALL show a ticker of the shared news above the busy status, containin
 #### Scenario: Item not applied
 - **WHEN** an item could not be used
 - **THEN** it is shown with a visible not-applied mark
+
+#### Scenario: Posted line
+- **WHEN** a visitor posts a line
+- **THEN** it appears in every open page's ticker without a not-applied mark and does not refetch the lineup
 
 #### Scenario: Reduced motion
 - **WHEN** the user prefers reduced motion
