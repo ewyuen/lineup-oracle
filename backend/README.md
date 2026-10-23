@@ -38,11 +38,9 @@ Replay speed is controlled by the `speed` parameter, measured in match minutes p
 
 The generator draws each true XI with weight `quality ** 4`, so better players start more often.
 
-## API and MCP server
+## API
 
 Run the API from `backend/`: `uvicorn lineup_oracle.api:create_app --factory` (port 8000). It loads `data/roster.json` and `data/events.jsonl` if present, otherwise generates the same data in memory from seed 42. Regenerate the events file with the command above if it was made before the `matchday` field or the `payload.translations` field existed (startup stops with an error otherwise). Operations: `GET /matches`, `GET /matches/{match_id}/xi`, `POST /predict_lineup`, `POST /team_news`, `GET /news`, `POST /news/restart`, `GET /health`. Team news accepts a player id and a kind (`injury`, `suspension`, `doubt`); free text (at most 100 characters) goes to the LLM parser when the model is configured (otherwise it is rejected with 422): a status for a player of the match (including recovered, cleared and fit) is applied to your session, other news is posted to the shared news log (one post per session every 10 seconds, else 429), and an unknown person is rejected as player not found. Availability is in memory only and kept per `session_id` (default `"default"`), so separate visitors do not affect each other.
-
-Run the MCP server (stdio) with `python -m lineup_oracle.mcp_server`. It forwards four tools to the API at `LINEUP_API_URL` (default `http://127.0.0.1:8000`).
 
 ## News feed
 
