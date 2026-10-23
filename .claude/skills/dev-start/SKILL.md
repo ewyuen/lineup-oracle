@@ -31,4 +31,4 @@ What is running, the URLs, and how to stop them (stop the background tasks; Ctrl
 
 ## Not covered
 
-MCP adapter (`python -m lineup_oracle.mcp_server`, stdio) and tests (`python -m pytest -q` in `backend/`, `dotnet test ui`); run them only when asked.
+Tests (`python -m pytest -q` in `backend/`, `dotnet test ui`); run them only when asked.
