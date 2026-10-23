@@ -15,6 +15,10 @@ Team news decides lineups, and it arrives late and as free text. A fan or analys
 - **A multi-agent pipeline on the Microsoft Agent Framework** runs the stages: ingest, interpret team news, pick the XI, explain, personalize.
 - **Azure Container Apps and Microsoft Foundry** host the service and the model, with OpenTelemetry traces in Application Insights.
 
+## Built with Spec-Driven Development
+
+Lineup Oracle is developed with a spec-driven AI engineering lifecycle. Each change is planned with an OpenSpec proposal, requirements, and task list, with a design document when useful, so the intended behavior and acceptance checks are clear before implementation. For most features, Claude Code helps prepare and review the change; GitHub Copilot implements the approved tasks. Tests and CI verify the work, with human approval before a change is archived and merged. This is how the project is built. 
+
 ## All data is synthetic
 
 The clubs, players, matches and team news are invented and generated from a seed. There are no real names, crests, logos or photos anywhere. The generator records the true XI of every match, so predictions can be scored honestly. The evaluation compares correct starters out of 11 with a "same XI as last match" baseline on held-out synthetic matches. It shows the pipeline works, not real-world accuracy.
