@@ -23,7 +23,7 @@ The clubs, players, matches and team news are invented and generated from a seed
 
 1. Pick a fixture and see the predicted XI with an explanation for each player.
 2. Inject a late injury and watch the XI update.
-3. Switch the language (English, Spanish, Traditional Chinese) and the mode (analyst or fan).
+3. Change the UI language (English, Spanish, or Traditional Chinese) and inspect the lineup probabilities and alternatives.
 
 ## Status
 
@@ -33,20 +33,70 @@ The clubs, players, matches and team news are invented and generated from a seed
 | P(start) scoring and XI optimizer | Built |
 | FastAPI service | Built |
 | Agent pipeline and LLM explanations | Built |
-| Razor Pages and HTMX UI | Planned |
-| Azure deployment (Bicep) | Built, not yet deployed to a real subscription |
+| Razor Pages and HTMX UI | Built |
+| Azure deployment (Bicep) | Deployed to Azure |
 
-## Try it
+## Run locally
 
-The backend needs Python 3.12 or newer. From the `backend/` folder:
+Prerequisites:
+- Python 3.12 or newer
+- .NET 10 SDK
+- Windows PowerShell
 
-```bash
-pip install -e ".[dev]"
-python -m pytest -q
-python -m lineup_oracle.events --seed 42 --out data/events.jsonl
+### 1. Set up and start the backend
+
+In a PowerShell terminal from the repository root:
+
+```powershell
+Set-Location .\backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\uvicorn.exe lineup_oracle.api:create_app --factory
 ```
 
-Run the API with `uvicorn lineup_oracle.api:create_app --factory`. More in [backend/README.md](backend/README.md). 
+Leave this terminal running. The API starts on `http://127.0.0.1:8000`; it generates the seeded synthetic roster and match events in memory when data files are absent.
+
+### 2. Start the UI
+
+Open a second PowerShell terminal at the repository root:
+
+```powershell
+dotnet run --project .\ui\LineupOracle.Ui
+```
+
+Open [http://localhost:5281](http://localhost:5281). The UI uses the local API URL by default.
+
+### 3. Check the API
+
+In a third terminal, run:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+The response should report `status: ok`.
+
+The model is optional. If `LINEUP_LLM_ENDPOINT` and `LINEUP_LLM_DEPLOYMENT` are unset, the deterministic lineup still works and explanations use the built-in English template. To enable LLM-based free-text team-news parsing and model-written explanations, copy [.env.example](.env.example) to `.env`, replace the endpoint and deployment placeholders with valid values, then restart the API. An API key is optional when using Azure sign-in (`az login`). `.env` is gitignored; do not commit it.
+
+### Run tests
+
+From the repository root, with the backend virtual environment created above:
+
+```powershell
+.\backend\.venv\Scripts\python.exe -m pytest -q
+dotnet test ui
+```
+
+## Walkthrough
+
+1. In the UI, choose a fixture, then select its home or away club.
+2. Review the predicted formation and starting XI. The analyst view shows each player's P(start) and explanation, along with available alternatives.
+3. Use a player's **Injure**, **Suspend**, or **Doubt** action to submit structured team news. The lineup updates for your browser session; another visitor's personal update does not change yours.
+4. Watch the shared news ticker. **Restart feed** replays the sample feed; feed items are applied to availability only when the model is configured.
+5. Use the language selector to switch between English, Spanish, and Traditional Chinese. Without a configured model, the UI changes language but fallback explanations remain in English.
+
+Typed free-text team news requires a configured model; without one, use the structured player actions above. For deeper backend commands, API details, and evaluation, see [backend/README.md](backend/README.md). For UI-specific setup and tests, see [ui/README.md](ui/README.md).
 
 ## Deploy to Azure
 
@@ -63,3 +113,5 @@ It creates the resource group and infrastructure, builds both images in the regi
 - [ARCHITECTURE.md](ARCHITECTURE.md): the system, the contracts between parts, open decisions.
 - [PLAN.md](PLAN.md): the working plan, deadlines and risks.
 - [openspec/](openspec/): the specifications and change proposals the project is built from, one change at a time.
+
+Live demo: [Lineup Oracle](https://lineup-ui.gentlepond-10ae1ea8.westus3.azurecontainerapps.io).
