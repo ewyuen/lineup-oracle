@@ -17,4 +17,4 @@
 
 ## 4. Approval
 
-- [ ] 4.1 Stop for human approval after verification; only after approval, archive the OpenSpec change, open a PR from `feature/local-development-guide` to `main`, and merge it.
+- [x] 4.1 Stop and wait for human approval after verification; approval was received before continuing with archive, PR, and merge.
