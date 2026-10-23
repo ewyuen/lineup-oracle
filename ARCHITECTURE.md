@@ -10,11 +10,27 @@ Status key: **stable** (built or fixed), **draft** (agreed shape, will change wh
 
 ```mermaid
 flowchart LR
-    Gen["Synthetic data generator<br/>(seeded, Python)"] -->|events| Replay["Event replay<br/>(async queue)"]
-    Replay --> Pipe["Agent pipeline<br/>(Agent Framework)"]
-    Pipe <-->|parse / explain| LLM["Foundry gpt-4.1-mini"]
-    Pipe --> API["FastAPI service"]
-    UI["ASP.NET Razor + HTMX UI<br/>fixture / club / mode / language"] -->|matches, predict_lineup, team_news| API
+    Gen["Seeded synthetic roster + event generator"] --> Data["Roster + match/event data"]
+    Data --> API["FastAPI service<br/>loads files or generates seed data"]
+    Browser["Browser"] --> UI["ASP.NET Razor Pages + HTMX UI<br/>fixture / club / language"]
+    UI -->|HTTP API requests| API
+    API -->|fixtures / lineup / news updates| UI
+
+    subgraph Runtime["FastAPI process"]
+        API --> Pick["Deterministic P(start) scoring<br/>+ SciPy XI optimizer"]
+        API --> Parser
+        API --> Explain
+        API --> Feed["In-process shared news feed"]
+        Feed --> Parser["Agent Framework news parser"]
+        Parser -->|validated availability| Shared["Shared in-memory availability<br/>+ stored predictions"]
+        Shared --> Pick
+        API -->|user news keyed by session_id| Personal["Session-specific availability"]
+        Personal --> Pick
+        Pick --> Explain["Agent Framework explainer"]
+        Explain -->|model unavailable or fails| Template["Template explanation fallback"]
+    end
+    Parser <-->|optional parse| Model["Configured model deployment"]
+    Explain <-->|optional explanation| Model
 ```
 
 All data is synthetic: invented clubs and players, no crests, logos or photos.
@@ -36,14 +52,21 @@ flowchart LR
 - **LLM:** only parses free-text team news and writes explanations. If it fails, the XI is still returned, with a template explanation.
 - **Team news has two input paths.** Structured events (UI preset buttons) skip the LLM and go straight to availability. Free-text news (generated, or typed in the UI) goes through the LLM parser, which outputs the same structured availability. If the parse fails or names an unknown person, the news is rejected with a message and the XI is unchanged. A typed line that names no status is posted to the shared news instead (see `submit_team_news`).
 
-## Azure deployment (built, not yet deployed live)
+## Azure deployment (deployed)
 
 ```mermaid
 flowchart LR
-    U[User] --> UIc["Container App: UI<br/>public HTTPS"]
-    UIc --> APIc["Container App: API<br/>internal ingress"]
-    APIc --> F["Foundry<br/>gpt-4.1-mini"]
-    UIc & APIc --> AI[App Insights]
+    User["Browser"] --> UIc["Container App: UI<br/>public HTTPS ingress"]
+    subgraph Env["Azure Container Apps environment"]
+        UIc -->|LineupApi__BaseUrl<br/>internal HTTPS| APIc["Container App: API<br/>internal ingress"]
+    end
+    ACR["Azure Container Registry"] -->|managed identity image pull| UIc
+    ACR -->|managed identity image pull| APIc
+    Identity["User-assigned managed identity"] -.-> UIc
+    Identity -.-> APIc
+    APIc -->|optional model calls<br/>Entra ID| Model["Microsoft Foundry deployment<br/>or configured existing endpoint"]
+    UIc -->|OpenTelemetry| AI["Application Insights"]
+    APIc -->|OpenTelemetry| AI
 ```
 
 Defined in `infra/` (`main.bicep`, `containerApp.bicep`, `main.bicepparam`) and deployed by `infra/deploy.ps1`; images are built in Azure Container Registry from `backend/Dockerfile` and `ui/Dockerfile`. CI (`.github/workflows/ci.yml`) runs `pytest`, `dotnet test` and a Bicep compile; there is no deploy job.
