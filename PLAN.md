@@ -13,7 +13,7 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 
 ## Outstanding items
 - [x] Decide: keep or cut Postgres. Cut: roster and events are files, history is in memory or SQLite if needed.
-- [x] Decide: the MCP server's role. A thin adapter over the API with `predict_lineup`, `submit_team_news`, `list_matches` and `get_match_xi`; the agent pipeline does not call it (see ARCHITECTURE.md).
+- [x] Cut the optional MCP adapter; the API and UI are the supported ways to use the project.
 - [x] Add the new workflow tasks to `synthetic-data-and-replay` (branch, unit tests, HITL approval, ARCHITECTURE.md update).
 - [x] Write a UI wireframe (ASCII in ARCHITECTURE.md) before the UI change. Google Stitch brief is in `private/stitch-brief.md`; commit the chosen layout as ASCII (task 1.2 of `razor-htmx-ui`).
 - [ ] Add OpenSpec tasks: evals (change 4), OpenTelemetry (change 6), team-news controls (changes 3 and 5).
@@ -28,22 +28,26 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 | Tool | Does |
 |---|---|
 | Claude Code | OpenSpec proposals, spec review, the XI optimizer (SciPy MILP), the Agent Framework pipeline, final review of every change |
-| Copilot agent mode, **small model** (e.g. GPT-5 mini; check current rates) | Data generator, MCP server, Razor/HTMX UI, Bicep files |
+| Copilot agent mode | Data generator, FastAPI service, Razor/HTMX UI, Bicep files |
 | Copilot completions (free) | Boilerplate while editing |
 
 Rule: a tight OpenSpec task list is what lets a small model build reliably. Do not spend Copilot credits on the optimizer or agent wiring.
 Check your usage on GitHub's billing page now and then. The legacy 300-premium-request plan applies only to annual plans.
 
 ## Design
-- **Architecture:** see [ARCHITECTURE.md](ARCHITECTURE.md) (data, pipeline, prediction, model, backend, MCP, UI, Azure, evaluation).
+- **Architecture:** see [ARCHITECTURE.md](ARCHITECTURE.md) (data, pipeline, prediction, model, backend, UI, Azure, evaluation).
 - **Observability:** OpenTelemetry exported to App Insights (details in ARCHITECTURE.md). Wire it in the Azure change; pipeline spans may come earlier in the pipeline change.
 - **Targets:** Best Multi-Agent System and Best Azure Cloud Native Integration.
 - **Demo (under 2 minutes):** pick a fixture, see the predicted XI with explanations, inject a late injury, watch the XI update, then switch language and fan mode.
 
-## OpenSpec changes (one per step; Claude Code proposes, Copilot builds, Claude Code reviews)
+## OpenSpec workflow (Claude Code + GitHub Copilot)
+
+Claude Code prepares and reviews the OpenSpec proposals and specifications. Copilot implements the approved task list, and Claude Code performs the final review. Both tools use the repository's OpenSpec workflow files: Claude commands and skills under `.claude/`, Copilot prompts and skills under `.github/`.
+
+## OpenSpec changes (one per step)
 1. Data generator and event replay.
 2. P(start) scoring and XI optimizer.
-3. FastAPI service and MCP server.
+3. FastAPI service.
 4. Agent pipeline and LLM explanations.
 5. Razor/HTMX UI.
 6. Azure deployment (Bicep).
@@ -51,6 +55,6 @@ Check your usage on GitHub's billing page now and then. The legacy 300-premium-r
 ## Risks
 - A pre-match predictor is not named in the rules. Theme fit (Stage 1, pass/fail) depends on the sponsor's reply.
 - gpt-4.1-mini is confirmed available. Still make one structured-output call early to check the parser works.
-- About 8 days solo with two languages, an MCP server and a UI is tight. Cut Event Hubs and the extras first.
-- Time: about 6 days to the Oct 25 freeze, not 8. Each change needs implementation, tests, human approval, archive, PR and merge. If you slip, cut in this order: Azure polish, MCP server, Event Hubs, extra languages.
+- About 8 days solo with two languages and a UI is tight. Cut Event Hubs and the extras first.
+- Time: about 6 days to the Oct 25 freeze, not 8. Each change needs implementation, tests, human approval, archive, PR and merge. If you slip, cut in this order: Azure polish, Event Hubs, extra languages.
 - New-repo rule: this repo already has history. Decide whether to move only the final files into the new repo. The official rules have not been read in full.
