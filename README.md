@@ -53,7 +53,7 @@ Run the API with `uvicorn lineup_oracle.api:create_app --factory`. More in [back
 Needs the Azure CLI (with Bicep), PowerShell 7 and a signed-in subscription (`az login`). From the repo root:
 
 ```powershell
-./infra/deploy.ps1 -ResourceGroup lineup-oracle-rg -Location swedencentral
+./infra/deploy.ps1 -ResourceGroup lineup-oracle-rg -Location westus3
 ```
 
 It creates the resource group and infrastructure, builds both images in the registry, updates the apps and prints the public UI URL. Re-running updates the same resources. Teardown: `az group delete --name lineup-oracle-rg`. Parameters, the no-quota option and troubleshooting are in [infra/README.md](infra/README.md).
