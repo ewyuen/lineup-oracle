@@ -15,18 +15,18 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 - [x] Cut the unused MCP adapter and remove Antigravity/OpenCode workflow support; keep Claude Code and GitHub Copilot.
 - [x] Update the root README with local setup and a feature walkthrough.
 - [x] Make the GitHub repository public: https://github.com/ewyuen/lineup-oracle
-- [ ] Review the public repository and its history for secrets, `.env`, `private/`, or real-person/club data before final submission.
+- [x] Review the public repository and its history for secrets, `.env`, `private/`, or real-person/club data before final submission.
 - [x] Refresh the architecture diagrams and current deployment/UI notes in [ARCHITECTURE.md](ARCHITECTURE.md).
-- [ ] Record a demonstration video under two minutes, showing the app running on its supported platform. Use only material you own or have permission to use; avoid third-party trademarks and copyrighted audio.
-- [ ] Upload the video to an allowed public host and add the public video URL and repository URL to the hackathon project page.
-- [ ] Save the project page and verify its required fields and links before the deadline.
+- [x] Record a demonstration video under two minutes, showing the app running on its supported platform. Use only material you own or have permission to use; avoid third-party trademarks and copyrighted audio.
+- [x] Upload the video to an allowed public host and add the public video URL and repository URL to the hackathon project page.
+- [x] Save the project page and verify its required fields and links before the deadline.
 
-## Who builds what (Copilot Pro is monthly: $10 of token-metered AI Credits, so use it sparingly)
+## Who builds what
 | Tool | Does |
 |---|---|
-| Claude Code | OpenSpec proposals, spec review, the XI optimizer (SciPy MILP), the Agent Framework pipeline, final review of every change |
 | Copilot agent mode | Data generator, FastAPI service, Razor/HTMX UI, Bicep files |
 | Copilot completions (free) | Boilerplate while editing |
+| Claude Code | OpenSpec proposals, spec review, the XI optimizer (SciPy MILP), the Agent Framework pipeline, final review of every change |
 
 Rule: a tight OpenSpec task list is what lets a small model build reliably. Do not spend Copilot credits on the optimizer or agent wiring.
 Check your usage on GitHub's billing page now and then. The legacy 300-premium-request plan applies only to annual plans.
