@@ -7,3 +7,5 @@ obj/
 
 *.egg-info/
 backend/data/events.jsonl
+
+.vscode/settings.json
