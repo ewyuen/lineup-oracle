@@ -44,7 +44,7 @@ Observed in the repo:
 
 **8. LLM client.** Reuse the pipeline's Agent Framework client (`Pipeline`, `LINEUP_LLM_*` settings, one long-lived loop thread, `DEFAULT_TIMEOUT`), adding a history-parser agent and a history-answer agent beside the existing two; unset means the model is off. Both steps are validated in code, as the other agents are. Rejected: the separate `httpx` client with `LLM_*` variables first proposed here, because the pipeline change has since landed and a second client would duplicate its settings, timeout and test fakes.
 
-**9. API and MCP.** `POST /player_history` takes either `question` or `filters` (exactly one, else 422) and returns `{filters, events, answer, cited_event_ids, llm_used}`. The MCP tool is the same pass-through as the others.
+**9. API.** `POST /player_history` takes either `question` or `filters` (exactly one, else 422) and returns `{filters, events, answer, cited_event_ids, llm_used}`.
 
 **10. Local and Azure.** `docker-compose.yml` runs the Apache AGE image; the loader and the DB-backed tests use `LINEUP_PG_URL` and skip when it is unset, so `python -m pytest -q` stays green on a machine without Docker. Azure Bicep (last task, cuttable): Flexible Server with `azure.extensions` and `shared_preload_libraries` set to AGE, URL in a Container Apps secret.
 

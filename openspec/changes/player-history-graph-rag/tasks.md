@@ -10,7 +10,7 @@
 
 - [x] 2.1 Add the deterministic template summary (counts by type, matches started, dated team-news items, cited ids, "nothing found" case); verify with unit tests for a normal, an empty and a team-news-only history.
 - [x] 2.2 Add `POST /player_history` (exactly one of `question` or `filters`, else 422; the `{filters, events, answer, cited_event_ids, llm_used}` shape; 422 for an unknown player) using the memory path and template answer; verify with API tests for filters, neither/both, unknown player, a question with no LLM configured (422 asking for filters), and that `/predict_lineup` is unchanged.
-- [x] 2.3 Add the `ask_player_history` MCP tool as a pass-through that forwards the API's error message; verify with MCP tests for the tool list (five tools), forwarding, and an error case.
+- [x] 2.3 (Dropped: the MCP adapter was removed from main, so there is no MCP tool.)
 
 ## 3. LLM question parsing and answering
 
@@ -28,7 +28,7 @@
 
 ## 5. Contracts and docs
 
-- [x] 5.1 Update ARCHITECTURE.md in the same PR: system-context diagram, the `player_history` contract, the MCP tool list, the kickoff-time rule, and the "Persistence" open decision (record the reversal of the Oct 20 cut); verify by reading the file against the specs.
+- [x] 5.1 Update ARCHITECTURE.md in the same PR: system-context diagram, the `player_history` contract, the kickoff-time rule, and the "Persistence" open decision (record the reversal of the Oct 20 cut); verify by reading the file against the specs.
 - [x] 5.2 Update `backend/README.md` and CLAUDE.md with the new env vars (`LINEUP_PG_URL`), `docker compose up`, `python -m lineup_oracle.graph --load` and the new endpoint; verify the documented commands run as written.
 
 ## 6. Azure (cuttable)

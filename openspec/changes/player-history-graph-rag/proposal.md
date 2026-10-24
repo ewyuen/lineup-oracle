@@ -11,7 +11,8 @@ The service can say who starts but not what happened to a player: injuries, susp
 - Add `ask_player_history`: a question is turned into a small filter schema (player, club, event types, time range); fixed, parameterised Cypher templates fetch the rows; an answer is written from those rows only, citing event ids. The LLM never writes Cypher.
 - Add the explicit-filter path: the same filters can be passed directly, with no LLM. When the LLM is unconfigured or fails, the answer is a template summary of the rows.
 - When the graph DB is unreachable or not configured, the same filters run as an in-memory scan of the loaded events (identical results).
-- Expose it as `POST /player_history` and as an MCP tool.
+- Expose it as `POST /player_history`.
+- Phase 2: this change builds on the current main baseline, where the MCP adapter has been removed, so there is no MCP tool.
 - Modify the `lineup-api` requirement "In-memory state with no database": the XI path stays in memory and never depends on the graph; history reads may use the graph.
 - Local Postgres + AGE through Docker Compose; the Azure Flexible Server (`azure.extensions` and `shared_preload_libraries` set to AGE) is the last, cuttable task.
 
@@ -25,12 +26,11 @@ Out of scope: vector search or embeddings, free-form LLM-generated Cypher, writi
 
 ### Modified Capabilities
 - `lineup-api`: the "In-memory state with no database" requirement allows an optional graph database for history reads only, and the API gains `POST /player_history`.
-- `mcp-adapter`: adds one tool, `ask_player_history`, as a thin HTTP call to the new endpoint.
 
 ## Impact
 
-- **ARCHITECTURE.md:** touches the system-context diagram (graph DB beside the API), the Azure deployment diagram (Postgres Flexible Server), a new `player_history` contract, the MCP tool list, and the "Persistence" open decision, which reverses the Oct 20 "Postgres was cut" note. All are updated in the same PR.
-- **Code:** new modules under `backend/lineup_oracle/` (graph loader and queries, history service, small LLM client), a route in `api.py`, a tool in `mcp_server.py`, new tests. No change to events, replay, scoring or the optimizer.
+- **ARCHITECTURE.md:** touches the system-context diagram (graph DB beside the API), the Azure deployment diagram (Postgres Flexible Server), a new `player_history` contract and the "Persistence" open decision, which reverses the Oct 20 "Postgres was cut" note. All are updated in the same PR.
+- **Code:** new modules under `backend/lineup_oracle/` (graph loader and queries, history service, small LLM client), a route in `api.py`, new tests. No change to events, replay, scoring or the optimizer.
 - **Dependencies:** a Postgres driver (`psycopg`); the LLM call reuses `httpx`.
 - **Infra:** `docker-compose.yml` for local Postgres + AGE; Bicep addition for the Flexible Server (last task).
 - **Risk:** AGE's openCypher support through psycopg is less mature than plain SQL, so the loader and queries need tests against a real AGE container. The XI path is unaffected if the graph fails.
