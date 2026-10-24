@@ -5,6 +5,7 @@ import itertools
 import os
 from datetime import datetime, timezone
 
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -51,6 +52,28 @@ def test_unreachable_database_gives_the_memory_result(monkeypatch):
     assert client.app.state.history_graph is not None
     response = history(client, types=["shot", "started"])
     assert response.status_code == 200 and response.json() == expected
+
+
+def test_connect_tolerates_azure_rejecting_load(monkeypatch):
+    class FakeConn:
+        def __init__(self):
+            self.sql, self.rollbacks = [], 0
+        def __enter__(self):
+            return self
+        def __exit__(self, *exc):
+            return False
+        def execute(self, sql):
+            self.sql.append(sql)
+            if sql.startswith("LOAD"):
+                raise psycopg.errors.InsufficientPrivilege("permission denied to LOAD")
+        def rollback(self):
+            self.rollbacks += 1
+
+    conn = FakeConn()
+    monkeypatch.setattr(graph.psycopg, "connect", lambda *a, **k: conn)
+    with graph.connect("postgresql://x") as got:
+        assert got is conn
+    assert conn.rollbacks == 1 and conn.sql[-1].startswith("SET search_path")
 
 
 def test_a_hostile_player_name_matches_nobody(monkeypatch):

@@ -41,7 +41,10 @@ RETURN m.id, m.kickoff_at, m.matchday
 def connect(url: str) -> Iterator[psycopg.Connection]:
     """One short-lived connection with AGE loaded and on the search path; the transaction commits on a clean exit."""
     with psycopg.connect(url, connect_timeout=CONNECT_TIMEOUT, options=f"-c statement_timeout={STATEMENT_TIMEOUT_MS}") as conn:
-        conn.execute("LOAD 'age'")
+        try:
+            conn.execute("LOAD 'age'")
+        except psycopg.errors.InsufficientPrivilege:  # Azure preloads AGE via shared_preload_libraries and rejects LOAD
+            conn.rollback()
         conn.execute('SET search_path = ag_catalog, "$user", public')
         yield conn
 
@@ -132,7 +135,7 @@ def main() -> None:
     args = parser.parse_args()
     url = os.environ.get("LINEUP_PG_URL")
     if not url:
-        raise SystemExit("Set LINEUP_PG_URL, e.g. postgresql://lineup:lineup@localhost:5433/lineup (docker compose up -d)")
+        raise SystemExit("Set LINEUP_PG_URL, e.g. postgresql://lineup:lineup@127.0.0.1:5433/lineup (docker compose up -d)")
     if not args.load:
         parser.error("nothing to do: pass --load")
     for name, n in load(url, State.load()).items():
