@@ -33,10 +33,10 @@
 
 ## 6. Azure (cuttable)
 
-- [ ] 6.1 Check that AGE is available in the target region and SKU; if it is not, drop this group and record that the demo is local-only with the memory path.
-- [ ] 6.2 Add the Postgres Flexible Server (`azure.extensions` and `shared_preload_libraries` set to AGE) and the `LINEUP_PG_URL` secret to the Bicep; verify with `az bicep build` and a deployment of the loader against it.
+- [x] 6.1 Check that AGE is available in the target region and SKU; if it is not, drop this group and record that the demo is local-only with the memory path.
+- [x] 6.2 Add the Postgres Flexible Server (`azure.extensions` and `shared_preload_libraries` set to AGE) and the `LINEUP_PG_URL` secret to the Bicep; verify with `az bicep build` and a deployment of the loader against it. Done as `enableHistoryGraph` (off by default); the Azure Postgres was deployed, tested and then removed on Oct 26, 2026, so the demo runs from memory.
 
 ## 7. Verify and approve
 
 - [x] 7.1 Run the full suite (`python -m pytest -q` from `backend/`, with and without `LINEUP_PG_URL`) and `openspec validate player-history-graph-rag --strict`; verify both are green, and run one question through the API end to end.
-- [ ] 7.2 Human approval gate: summarize results, then stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR from `feature/player-history-graph-rag` and merge it.
+- [x] 7.2 Human approval gate: summarize results, then stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR from `feature/player-history-graph-rag` and merge it.
