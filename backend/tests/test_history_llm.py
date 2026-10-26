@@ -35,7 +35,7 @@ def app_with(handler):
 
 
 def good_parse(payload):
-    return {"player": "Pia Ash", "types": None, "from": None, "to": payload["matchday_kickoffs"]["3"], "match": None}
+    return {"player": "Pia Ash", "from": None, "to": payload["matchday_kickoffs"]["3"], "match": None}
 
 
 def cite_all(payload):
@@ -62,7 +62,7 @@ def test_question_is_parsed_and_answered_with_citations():
 
 def test_explicit_filters_make_no_parse_call_but_may_use_the_model_to_answer():
     client, fake = app_with(model(None, cite_all))
-    body = ask(client, filters={"player": "harbor-city-20", "types": ["shot"]}).json()
+    body = ask(client, filters={"player": "harbor-city-20"}).json()
     assert body["llm_used"] is True
     assert not any("matchday_kickoffs" in c for c in fake.calls)
 
@@ -76,7 +76,6 @@ def test_nothing_found_does_not_call_the_model_for_an_answer():
 @pytest.mark.parametrize(
     "parsed, message",
     [
-        ({"player": "Pia Ash", "types": ["pass"]}, "event types that do not exist: pass"),
         ({"player": None}, "names no player"),
         ({"player": "Zed Zed"}, "Unknown player 'Zed Zed'"),
         ({"player": "Pia Ash", "from": "next tuesday"}, "time range could not be read"),

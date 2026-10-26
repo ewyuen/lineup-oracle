@@ -558,9 +558,9 @@ def test_only_a_cleared_text_lifts_a_suspension(text_client, state):
 
 
 def test_history_by_filters(client):
-    body = client.post("/player_history", json={"filters": {"player": "harbor-city-20", "types": ["shot", "tackle"]}}).json()
-    assert body["filters"]["player"] == "harbor-city-20" and body["filters"]["types"] == ["shot", "tackle"]
-    assert body["events"] and {e["type"] for e in body["events"]} == {"shot", "tackle"}
+    body = client.post("/player_history", json={"filters": {"player": "harbor-city-20"}}).json()
+    assert body["filters"]["player"] == "harbor-city-20" and "types" not in body["filters"]
+    assert body["events"] and {e["type"] for e in body["events"]} == {"team_news"}
     times = [e["occurred_at"] for e in body["events"]]
     assert times == sorted(times)
     assert body["llm_used"] is False
@@ -570,16 +570,16 @@ def test_history_by_filters(client):
 
 def test_history_time_range_and_name(client):
     everything = client.post("/player_history", json={"filters": {"player": "Pia Ash"}}).json()
-    cut = everything["events"][5]["occurred_at"]
+    cut = everything["events"][1]["occurred_at"]
     after = client.post("/player_history", json={"filters": {"player": "Pia Ash", "from": cut}}).json()
-    assert [e["id"] for e in after["events"]] == [e["id"] for e in everything["events"][5:]]
+    assert [e["id"] for e in after["events"]] == [e["id"] for e in everything["events"][1:]]
     assert after["filters"]["from"] == cut
 
 
 def test_history_nothing_found(client):
     body = client.post("/player_history", json={"filters": {"player": "Pia Ash", "from": "2030-01-01T00:00:00Z"}}).json()
     assert body["events"] == [] and body["cited_event_ids"] == []
-    assert body["answer"].startswith("Nothing found")
+    assert body["answer"].startswith("No team news found")
 
 
 @pytest.mark.parametrize(
@@ -588,7 +588,7 @@ def test_history_nothing_found(client):
         ({}, "either a question or filters"),
         ({"question": "q", "filters": {"player": "Pia Ash"}}, "either a question or filters"),
         ({"filters": {"player": "Zed Zed"}}, "Unknown player 'Zed Zed'"),
-        ({"filters": {"player": "Pia Ash", "types": ["pass"]}}, "Input should be 'shot'"),
+        ({"filters": {"player": "Pia Ash", "types": ["pass"]}}, "types: Extra inputs are not permitted"),
         ({"filters": {"player": "Pia Ash", "match": "nope"}}, "Unknown match"),
         ({"filters": {"player": "Pia Ash", "from": "2026-09-01T00:00:00Z", "to": "2026-08-01T00:00:00Z"}}, "ends before it starts"),
         ({"question": "What happened to Pia Ash?"}, "explicit filters"),

@@ -18,22 +18,15 @@ CONNECT_TIMEOUT = 2  # seconds; the request falls back to memory when the databa
 STATEMENT_TIMEOUT_MS = 5000
 BATCH = 500  # rows per UNWIND
 
-# Free text never reaches these strings: every value travels as an agtype parameter ($player, $types, ...).
+# The type test hides other events in a graph loaded before team news became the only history.
+# Free text never reaches these strings: every value travels as an agtype parameter ($player, $match, ...).
 EVENTS_QUERY = """
 MATCH (p:Player {id: $player})-[:HAD]->(e:Event)-[:IN]->(m:Match)
-WHERE ($types IS NULL OR e.type IN $types)
+WHERE e.type = 'team_news'
   AND ($match IS NULL OR m.id = $match)
   AND ($start IS NULL OR e.occurred_at >= $start)
   AND ($end IS NULL OR e.occurred_at <= $end)
 RETURN e.id, e.type, m.id, e.occurred_at, e.payload
-"""
-STARTS_QUERY = """
-MATCH (p:Player {id: $player})-[:STARTED]->(m:Match)
-WHERE ($types IS NULL OR 'started' IN $types)
-  AND ($match IS NULL OR m.id = $match)
-  AND ($start IS NULL OR m.kickoff_at >= $start)
-  AND ($end IS NULL OR m.kickoff_at <= $end)
-RETURN m.id, m.kickoff_at, m.matchday
 """
 
 
@@ -67,7 +60,6 @@ def load(url: str, state: State) -> dict[str, int]:
     clubs = [{"name": c.name, "formation": c.formation} for c in state.roster.clubs.values()]
     players = [{"id": p.id, "name": p.name, "position": p.position, "number": p.number, "club": p.club} for p in state.players.values()]
     matches = [{"id": mid, "matchday": m["matchday"], "kickoff_at": iso(kickoff(m["matchday"])), "home": m["home_club"], "away": m["away_club"]} for mid, m in meta.items()]
-    starts = [{"player": pid, "mid": mid} for mid, m in meta.items() for pid in m["home_xi"] + m["away_xi"]]
     events = [
         {
             "id": e.id, "type": e.type, "minute": e.minute, "payload": e.payload, "mid": e.match_id,
@@ -92,7 +84,6 @@ def load(url: str, state: State) -> dict[str, int]:
             _write(conn, "MATCH (p:Player {id: r.id}), (c:Club {name: r.club}) CREATE (p)-[:PLAYS_FOR]->(c)", players)
             _write(conn, "MATCH (c:Club {name: r.home}), (m:Match {id: r.id}) CREATE (c)-[:HOME_IN]->(m)", matches)
             _write(conn, "MATCH (c:Club {name: r.away}), (m:Match {id: r.id}) CREATE (c)-[:AWAY_IN]->(m)", matches)
-            _write(conn, "MATCH (p:Player {id: r.player}), (m:Match {id: r.mid}) CREATE (p)-[:STARTED]->(m)", starts)
             _write(conn, "MATCH (p:Player {id: r.player}), (e:Event {id: r.id}) CREATE (p)-[:HAD]->(e)", events)
             _write(conn, "MATCH (e:Event {id: r.id}), (m:Match {id: r.mid}) CREATE (e)-[:IN]->(m)", events)
             return counts(conn)
@@ -102,26 +93,22 @@ def counts(conn: psycopg.Connection) -> dict[str, int]:
     out = {}
     for label in ("Club", "Player", "Match", "Event"):
         out[label] = _cypher(conn, f"MATCH (v:{label}) RETURN count(v)", None, ["n"])[0][0]
-    for rel in ("PLAYS_FOR", "HOME_IN", "AWAY_IN", "STARTED", "HAD", "IN"):
+    for rel in ("PLAYS_FOR", "HOME_IN", "AWAY_IN", "HAD", "IN"):
         out[rel] = _cypher(conn, f"MATCH ()-[r:{rel}]->() RETURN count(r)", None, ["n"])[0][0]
     return out
 
 
 def fetch_history(url: str, player: Player, filters: HistoryFilters) -> list[HistoryItem]:
     """The graph's answer to the retrieval: items for the resolved player, in time then id order. Raises psycopg.Error when it cannot."""
-    player_id, club = player.id, player.club
     params = {
-        "player": player_id,
-        "types": list(filters.types) if filters.types is not None else None,
+        "player": player.id,
         "match": filters.match,
         "start": iso(filters.start) if filters.start else None,
         "end": iso(filters.end) if filters.end else None,
     }
     with connect(url) as conn:
         events = _cypher(conn, EVENTS_QUERY, params, ["id", "type", "match_id", "occurred_at", "payload"])
-        starts = _cypher(conn, STARTS_QUERY, params, ["match_id", "kickoff_at", "matchday"])
-    items = [HistoryItem(i, t, m, club, _moment(at), payload) for i, t, m, at, payload in events]
-    items += [HistoryItem(f"{m}-start-{player_id}", "started", m, club, _moment(at), {"matchday": day}) for m, at, day in starts]
+    items = [HistoryItem(i, t, m, player.club, _moment(at), payload) for i, t, m, at, payload in events]
     return sorted(items, key=lambda i: (i.occurred_at, i.id))
 
 

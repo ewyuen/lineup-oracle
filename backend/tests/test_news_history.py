@@ -23,7 +23,7 @@ def a_news_item(state: State):
 
 
 def news_rows(state: State, player_id: str, session_id: str = "default", **kw):
-    items = retrieve_player_history(state, HistoryFilters(player_id, ("team_news",), **kw), session_id=session_id).items
+    items = retrieve_player_history(state, HistoryFilters(player_id, **kw), session_id=session_id).items
     return {i.id: i for i in items}
 
 
@@ -77,13 +77,12 @@ def test_a_sessions_own_news_is_seen_only_by_that_session():
     assert f"manual-{player_id}-injury" not in news_rows(state, player_id)
 
 
-def test_a_sessions_news_follows_the_type_and_match_filters():
+def test_a_sessions_news_follows_the_match_filter():
     state = fresh()
     _, player_id = a_news_item(state)
     state.session_news[("s1", player_id, "doubt")] = NewsEntry(NOW, "match-001", "c", "t")
     ids = lambda **kw: [i.id for i in retrieve_player_history(state, HistoryFilters(player_id, **kw), session_id="s1").items]
     assert f"manual-{player_id}-doubt" in ids()
-    assert f"manual-{player_id}-doubt" not in ids(types=("shot",))
     assert f"manual-{player_id}-doubt" not in ids(match="match-002")
 
 
@@ -107,7 +106,7 @@ def _match(client):
 
 
 def _history_ids(client, player_id, **extra):
-    body = client.post("/player_history", json={"filters": {"player": player_id, "types": ["team_news"]}, **extra})
+    body = client.post("/player_history", json={"filters": {"player": player_id}, **extra})
     assert body.status_code == 200, body.text
     return [e["id"] for e in body.json()["events"]]
 
