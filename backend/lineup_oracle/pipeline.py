@@ -19,8 +19,8 @@ from .roster import Club, Player
 T = TypeVar("T")
 UNAVAILABLE = "Free-text team news parsing is unavailable right now; send a player id and a kind instead."
 UNREADABLE = "The news could not be read as a player and a kind (injury, suspension or doubt); send a player id and a kind instead."
-HISTORY_UNAVAILABLE = "Free-text questions are unavailable right now; send explicit filters (a player, and optionally event types and a time range) instead."
-HISTORY_UNREADABLE = "The question could not be read; name a player and optionally event types and a time range, or send explicit filters."
+HISTORY_UNAVAILABLE = "Free-text questions are unavailable right now; send explicit filters (a player, and optionally a time range) instead."
+HISTORY_UNREADABLE = "The question could not be read; name a player and optionally a time range, or send explicit filters."
 MAX_HISTORY_ROWS = 100  # events the model sees, the newest
 MAX_EXPLANATION_CHARS = 200
 MAX_POST_CHARS = 200

@@ -14,9 +14,8 @@ from .state import State
 
 SEASON_START = datetime(2026, 8, 15, 15, 0, tzinfo=timezone.utc)  # matchday 1 kickoff; every matchday follows a week later
 MATCHDAY_SPACING = timedelta(days=7)
-EVENT_TYPES = ("shot", "tackle", "team_news")  # the events that are player history; passes and the rest are not
+EVENT_TYPES = ("team_news",)  # the only events that are player history
 log = logging.getLogger(__name__)
-HISTORY_TYPES = (*EVENT_TYPES, "started")  # `started` items come from the match metadata, not from an event
 
 
 class HistoryError(ValueError):
@@ -26,7 +25,6 @@ class HistoryError(ValueError):
 @dataclass(frozen=True)
 class HistoryFilters:
     player: str  # id or exact name
-    types: tuple[str, ...] | None = None
     start: datetime | None = None  # inclusive
     end: datetime | None = None  # inclusive
     match: str | None = None
@@ -53,7 +51,7 @@ class History:
 
     def filters_dict(self) -> dict[str, Any]:
         f = self.filters
-        return {"player": f.player, "types": list(f.types) if f.types is not None else None, "from": iso(f.start) if f.start else None, "to": iso(f.end) if f.end else None, "match": f.match}
+        return {"player": f.player, "from": iso(f.start) if f.start else None, "to": iso(f.end) if f.end else None, "match": f.match}
 
 
 def iso(moment: datetime) -> str:
@@ -115,23 +113,18 @@ GraphFetch = Callable[[Player, HistoryFilters], list[HistoryItem]]  # raises psy
 
 
 def retrieve_player_history(state: State, filters: HistoryFilters, graph: GraphFetch | None = None, session_id: str = "default") -> History:
-    """The player's shots, tackles, team news and starts, filtered, in time then id order.
+    """The player's team news, filtered, in time then id order.
 
     Filters are validated here. With a `graph` the rows come from it, and any database error falls back to the in-memory scan,
     which is the reference implementation and gives the same rows. Either store is asked without the time range: the news that
     arrived while the service ran is applied to its rows first (`_overlay`), then the range is."""
     player = resolve_player(state, filters.player)
-    types = filters.types
-    if types is not None:
-        unknown = sorted(set(types) - set(HISTORY_TYPES))
-        if unknown:
-            raise HistoryError(f"Unknown event type {', '.join(map(repr, unknown))}; use {', '.join(HISTORY_TYPES)}")
     start, end = _utc(filters.start), _utc(filters.end)
     if start and end and start > end:
         raise HistoryError("The time range ends before it starts")
     if filters.match is not None and filters.match not in state.metadata:
         raise HistoryError(f"Unknown match {filters.match!r}")
-    used = HistoryFilters(player.id, tuple(types) if types is not None else None, start, end, filters.match)
+    used = HistoryFilters(player.id, start, end, filters.match)
     stored = replace(used, start=None, end=None)
     items = None
     if graph is not None:
@@ -148,25 +141,19 @@ def _overlay(state: State, player: Player, used: HistoryFilters, items: list[His
     """Feed items re-timed to their delivery, this session's own submitted news added, then the time range applied."""
     delivered = dict(state.delivered)  # snapshots: the feed and requests write these from other threads
     rows = [replace(i, occurred_at=_floor_ms(delivered[i.id])) if i.id in delivered else i for i in items]
-    if used.types is None or "team_news" in used.types:
-        for (session, player_id, kind), news in list(state.session_news.items()):
-            if session == session_id and player_id == player.id and used.match in (None, news.match_id):
-                payload = {"kind": kind, "text": news.text, "player_name": player.name}
-                rows.append(HistoryItem(f"manual-{player.id}-{kind}", "team_news", news.match_id, news.club, _floor_ms(news.at), payload))
+    for (session, player_id, kind), news in list(state.session_news.items()):
+        if session == session_id and player_id == player.id and used.match in (None, news.match_id):
+            payload = {"kind": kind, "text": news.text, "player_name": player.name}
+            rows.append(HistoryItem(f"manual-{player.id}-{kind}", "team_news", news.match_id, news.club, _floor_ms(news.at), payload))
     rows = [i for i in rows if (used.start is None or i.occurred_at >= used.start) and (used.end is None or i.occurred_at <= used.end)]
     return sorted(rows, key=lambda i: (i.occurred_at, i.id))
 
 
 def history_from_memory(state: State, player: Player, used: HistoryFilters) -> list[HistoryItem]:
-    types, start, end = used.types, used.start, used.end
+    start, end = used.start, used.end
 
-    def wanted(kind: str, match_id: str, at: datetime) -> bool:
-        return (
-            (types is None or kind in types)
-            and (used.match is None or match_id == used.match)
-            and (start is None or at >= start)
-            and (end is None or at <= end)
-        )
+    def wanted(match_id: str, at: datetime) -> bool:
+        return (used.match is None or match_id == used.match) and (start is None or at >= start) and (end is None or at <= end)
 
     items: list[HistoryItem] = []
     news = team_news_players(state)
@@ -174,29 +161,16 @@ def history_from_memory(state: State, player: Player, used: HistoryFilters) -> l
         if e.type not in EVENT_TYPES or (e.player or news.get(e.id)) != player.id:
             continue
         at = occurred_at(e, state.metadata[e.match_id].payload["matchday"])
-        if wanted(e.type, e.match_id, at):
+        if wanted(e.match_id, at):
             items.append(HistoryItem(e.id, e.type, e.match_id, e.club, at, e.payload))
-    for match_id, meta in state.metadata.items():
-        if player.id in meta.payload["home_xi"] + meta.payload["away_xi"]:
-            at = kickoff(meta.payload["matchday"])
-            if wanted("started", match_id, at):
-                items.append(HistoryItem(f"{match_id}-start-{player.id}", "started", match_id, player.club, at, {"matchday": meta.payload["matchday"]}))
     return sorted(items, key=lambda i: (i.occurred_at, i.id))
 
 
-def _count(n: int, noun: str) -> str:
-    return f"{n} {noun}" if n == 1 else f"{n} {noun}{'es' if noun.endswith('ch') else 's'}"
-
-
 def template_answer(history: History) -> str:
-    """Plain summary built only from the retrieved items: counts by type, then each team-news line with its date and id."""
+    """Plain summary built only from the retrieved items: how many team news items, each with its date and id."""
     who = f"{history.player.name} ({history.player.club})"
     if not history.items:
-        return f"Nothing found for {who} with these filters."
-    counts = {kind: sum(i.type == kind for i in history.items) for kind in HISTORY_TYPES}
-    parts = [_count(counts[kind], kind) for kind in ("shot", "tackle") if counts[kind]]
-    if counts["started"]:
-        parts.append(f"started {_count(counts['started'], 'match')}")
-    text = f"{who}: {', '.join(parts) or 'no shots, tackles or starts'}."
-    news = [f"{i.occurred_at:%Y-%m-%d} {i.payload.get('kind')}: {i.payload.get('text')} [{i.id}]" for i in history.items if i.type == "team_news"]
-    return f"{text} Team news: {'; '.join(news)}." if news else text
+        return f"No team news found for {who} with these filters."
+    news = [f"{i.occurred_at:%Y-%m-%d} {i.payload.get('kind')}: {i.payload.get('text')} [{i.id}]" for i in history.items]
+    noun = "item" if len(news) == 1 else "items"
+    return f"{who}: {len(news)} team news {noun}. {'; '.join(news)}."

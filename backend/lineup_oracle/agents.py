@@ -40,7 +40,6 @@ class ParsedHistoryQuestion(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     player: str | None = None
-    types: list[str] | None = None
     from_: str | None = Field(None, alias="from")
     to: str | None = None
     match: str | None = None
@@ -97,8 +96,7 @@ def explainer_agent(client) -> Agent:
 HISTORY_PARSER_INSTRUCTIONS = (
     "You turn one question about what happened to a football player into search filters. "
     "You receive JSON with the question and the kickoff time of every matchday and the current time now (ISO 8601, UTC). "
-    "Answer with JSON only: {\"player\": the player's full name exactly as written in the question, \"types\": a list of the event types the question asks about, "
-    "from shot, tackle, team_news (injuries, suspensions and doubts) and started (matches the player started), or null for all, "
+    "Answer with JSON only: {\"player\": the player's full name exactly as written in the question, "
     "\"from\": start of the time range as ISO 8601 or null, \"to\": end of the time range as ISO 8601 or null, \"match\": a match id or null}. "
     "Map phrases such as \"before matchday 3\" or \"after matchday 2\" to the kickoff times you were given. "
     "Map \"today\" or \"this week\" to a range ending at now. "
@@ -108,6 +106,7 @@ HISTORY_PARSER_INSTRUCTIONS = (
 HISTORY_ANSWER_INSTRUCTIONS = (
     "You answer a question about what happened to a football player, using only the events you receive. "
     "You receive JSON with the question, the filters and the events (id, type, match_id, club, occurred_at, payload), oldest first. "
+    "The events are the player's team news only (injuries, suspensions, doubts and clearances); if the question asks about anything else, such as shots, tackles or starts, say that only team news is kept. Answer in English. "
     "Use only these events, nothing else, and add no outside knowledge about real players or clubs. Be brief: at most 80 words. "
     + MALE_PLAYERS_RULE +
     "Answer with JSON only: {\"answer\": the answer text, \"cited_event_ids\": the ids of every event the answer relies on}. "

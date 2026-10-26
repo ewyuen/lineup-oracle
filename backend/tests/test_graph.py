@@ -47,10 +47,10 @@ def test_unset_url_means_memory(monkeypatch):
 
 
 def test_unreachable_database_gives_the_memory_result(monkeypatch):
-    expected = history(client_with(monkeypatch, None), types=["shot", "started"]).json()
+    expected = history(client_with(monkeypatch, None), match="match-001").json()
     client = client_with(monkeypatch, UNREACHABLE)
     assert client.app.state.history_graph is not None
-    response = history(client, types=["shot", "started"])
+    response = history(client, match="match-001")
     assert response.status_code == 200 and response.json() == expected
 
 
@@ -93,9 +93,9 @@ def loaded():
 def test_seeded_counts(loaded):
     with graph.connect(PG_URL) as conn:
         n = graph.counts(conn)
-    shots_tackles_news = sum(e.type in ("shot", "tackle", "team_news") for e in EVENTS)
-    assert (n["Club"], n["Player"], n["Match"], n["Event"]) == (6, 120, 30, shots_tackles_news)
-    assert n["PLAYS_FOR"] == 120 and n["HOME_IN"] == n["AWAY_IN"] == 30 and n["STARTED"] == 30 * 22
+    news = sum(e.type == "team_news" for e in EVENTS)
+    assert (n["Club"], n["Player"], n["Match"], n["Event"]) == (6, 120, 30, news)
+    assert n["PLAYS_FOR"] == 120 and n["HOME_IN"] == n["AWAY_IN"] == 30 and "STARTED" not in n
     assert n["HAD"] == n["IN"] == n["Event"]
     with graph.connect(PG_URL) as conn:
         passes = graph._cypher(conn, "MATCH (e:Event) WHERE e.type = 'pass' RETURN count(e)", None, ["n"])
@@ -126,21 +126,18 @@ def test_hostile_values_are_data_and_leave_the_graph_intact(loaded):
         before = graph.counts(conn)
     hostile = "}) DETACH DELETE p //"
     ghost = Player(hostile, "Harbor City", hostile, 1, "GK", "x")
-    assert graph.fetch_history(PG_URL, ghost, HistoryFilters(hostile, match=hostile, types=("shot",))) == []
+    assert graph.fetch_history(PG_URL, ghost, HistoryFilters(hostile, match=hostile)) == []
     with graph.connect(PG_URL) as conn:
         assert graph.counts(conn) == before
 
 
 def _filter_sets():
-    shot_times = [i.occurred_at for i in history_from_memory(STATE, STATE.players["harbor-city-20"], HistoryFilters("harbor-city-20", ("shot",)))]
+    news_times = [i.occurred_at for i in history_from_memory(STATE, STATE.players["harbor-city-20"], HistoryFilters("harbor-city-20"))]
     match = next(iter(STATE.metadata))
     yield {}
-    for types in (("shot",), ("tackle",), ("team_news",), ("started",), ("shot", "started"), ("team_news", "tackle")):
-        yield {"types": types}
     yield {"match": match}
-    yield {"match": match, "types": ("shot", "tackle")}
     yield {"start": kickoff(3), "end": kickoff(6)}
-    yield {"start": shot_times[2], "end": shot_times[4], "types": ("shot",)}  # both ends inclusive, to the millisecond
+    yield {"start": news_times[0], "end": news_times[-1]}  # both ends inclusive, to the millisecond
     yield {"start": kickoff(50)}
 
 
@@ -154,7 +151,7 @@ def test_graph_and_memory_agree(loaded):
             from_memory = retrieve_player_history(STATE, asked)
             assert from_graph.items == from_memory.items, (player.id, filters)
             checked += bool(from_graph.items)
-    assert checked > 100  # the comparison was not between empty lists
+    assert checked > 20  # the comparison was not between empty lists
 
 
 def _state_with_news() -> tuple[State, datetime]:
@@ -174,7 +171,7 @@ def test_graph_and_memory_agree_with_the_news_overlay(loaded):
     day = now.replace(hour=0, minute=0, second=0, microsecond=0)
     checked = 0
     for player in itertools.islice(state.players.values(), 0, None, 5):
-        for filters in ({}, {"types": ("team_news",)}, {"start": day}, {"end": day}, {"start": kickoff(2), "end": kickoff(5)}):
+        for filters in ({}, {"start": day}, {"end": day}, {"start": kickoff(2), "end": kickoff(5)}):
             asked = HistoryFilters(player.id, **filters)
             from_graph = retrieve_player_history(state, asked, lambda p, f: graph.fetch_history(PG_URL, p, f), "s1")
             assert from_graph.items == retrieve_player_history(state, asked, session_id="s1").items, (player.id, filters)

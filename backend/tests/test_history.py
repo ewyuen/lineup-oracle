@@ -22,7 +22,7 @@ from lineup_oracle.state import State
 ROSTER = generate_synthetic_roster(42)
 EVENTS = generate_match_events(ROSTER, generate_fixtures(CLUB_NAMES), seed=42)
 STATE = State(ROSTER, EVENTS)
-PIA = "Pia Ash"  # harbor-city-20: shots, tackles, two team-news items and three starts in the seed
+PIA = "Pia Ash"  # harbor-city-20: two team-news items in the seed (and shots, tackles and starts, which history ignores)
 
 
 def history(**kw):
@@ -38,12 +38,11 @@ def test_kickoffs_are_a_week_apart():
     assert kickoff(10) - kickoff(9) == timedelta(days=7)
 
 
-def test_events_of_one_matchday_share_a_kickoff_base():
-    metas = [m for m in STATE.metadata.values() if m.payload["matchday"] == 2]
-    assert len(metas) == 3
-    for m in metas:
-        items = retrieve_player_history(STATE, HistoryFilters(m.payload["home_xi"][0], ("started",), match=m.match_id)).items
-        assert items[0].occurred_at == kickoff(2)
+def test_team_news_of_one_matchday_shares_a_kickoff_base():
+    news = [e for e in EVENTS if e.type == "team_news" and e.minute == -24]
+    for e in news[:5]:
+        day = STATE.metadata[e.match_id].payload["matchday"]
+        assert occurred_at(e, day) == kickoff(day) - timedelta(hours=24)
 
 
 def test_team_news_counts_offsets_as_hours_and_play_as_minutes():
@@ -62,7 +61,7 @@ def test_history_is_ordered_by_time_then_id_and_has_the_expected_shape():
     assert h.player.id == "harbor-city-20"
     keys = [(i.occurred_at, i.id) for i in h.items]
     assert keys == sorted(keys)
-    assert {i.type for i in h.items} == {"shot", "tackle", "team_news", "started"}
+    assert {i.type for i in h.items} == {"team_news"}
     item = h.items[0].to_dict()
     assert set(item) == {"id", "type", "match_id", "club", "occurred_at", "payload"}
     assert item["occurred_at"].endswith("Z")
@@ -73,21 +72,19 @@ def test_id_and_name_give_the_same_history():
     assert history().items == history(player="harbor-city-20").items
 
 
-def test_only_player_history_types_are_returned():
-    assert {i.type for i in history().items} <= {"shot", "tackle", "team_news", "started"}
+def test_only_team_news_is_returned():
+    assert len(history().items) == 2 and {i.type for i in history().items} == {"team_news"}
 
 
-def test_filter_by_type_and_range():
-    all_shots = history(types=("shot",)).items
-    assert all_shots and {i.type for i in all_shots} == {"shot"}
-    lo, hi = all_shots[1].occurred_at, all_shots[-2].occurred_at
-    inside = history(types=("shot",), start=lo, end=hi).items
-    assert inside == all_shots[1:-1]  # both ends inclusive
-    assert history(types=("shot",), start=hi + timedelta(days=100)).items == []
+def test_filter_by_range():
+    items = history().items
+    assert history(start=items[1].occurred_at).items == items[1:]  # inclusive
+    assert history(end=items[0].occurred_at).items == items[:1]
+    assert history(start=items[-1].occurred_at + timedelta(days=100)).items == []
 
 
 def test_naive_times_are_read_as_utc():
-    at = history().items[3].occurred_at
+    at = history().items[1].occurred_at
     assert history(start=at.replace(tzinfo=None), end=at.replace(tzinfo=None)).items == [i for i in history().items if i.occurred_at == at]
 
 
@@ -97,22 +94,12 @@ def test_filter_by_match():
     assert items and {i.match_id for i in items} == {match}
 
 
-def test_started_items_come_from_the_metadata_and_can_be_excluded():
-    h = history()
-    started = [i for i in h.items if i.type == "started"]
-    assert len(started) == 3
-    assert all(i.occurred_at == kickoff(STATE.metadata[i.match_id].payload["matchday"]) for i in started)
-    assert all(h.player.id in STATE.metadata[i.match_id].payload["home_xi"] + STATE.metadata[i.match_id].payload["away_xi"] for i in started)
-    assert not [i for i in history(types=("shot", "tackle")).items if i.type == "started"]
-    assert {i.type for i in history(types=("started",)).items} == {"started"}
-
-
 def test_team_news_is_linked_by_payload_name():
-    news = history(types=("team_news",)).items
+    news = history().items
     assert len(news) == 2
     assert all(PIA in i.payload["text"] and i.payload["kind"] in {"injury", "suspension", "doubt"} for i in news)
     # no other player's history contains these events
-    other = retrieve_player_history(STATE, HistoryFilters("harbor-city-1", ("team_news",))).items
+    other = retrieve_player_history(STATE, HistoryFilters("harbor-city-1")).items
     assert not {i.id for i in news} & {i.id for i in other}
 
 
@@ -146,7 +133,6 @@ def test_ambiguous_name_lists_the_candidates():
 @pytest.mark.parametrize(
     "kw, message",
     [
-        ({"types": ("pass",)}, "Unknown event type 'pass'"),
         ({"match": "match-999"}, "Unknown match"),
         ({"start": datetime(2026, 9, 1, tzinfo=timezone.utc), "end": datetime(2026, 8, 1, tzinfo=timezone.utc)}, "ends before it starts"),
     ],
@@ -157,7 +143,7 @@ def test_bad_filters_are_rejected(kw, message):
 
 
 def test_used_filters_carry_the_resolved_player():
-    assert history().filters_dict() == {"player": "harbor-city-20", "types": None, "from": None, "to": None, "match": None}
+    assert history().filters_dict() == {"player": "harbor-city-20", "from": None, "to": None, "match": None}
 
 
 # --- template answer ----------------------------------------------------
@@ -165,21 +151,15 @@ def test_used_filters_carry_the_resolved_player():
 
 def test_template_for_a_normal_history():
     text = template_answer(history())
-    assert text.startswith("Pia Ash (Harbor City): ")
-    assert "shots" in text and "tackles" in text and "started 3 matches" in text
-    assert text.count("[Harbor City-match-") == 2  # each team-news item cites its id
+    assert text.startswith("Pia Ash (Harbor City): 2 team news items. 2026-")
+    assert text.count("[Harbor City-match-") == 2  # each item cites its id
 
 
 def test_template_singular_and_empty():
-    one = history(types=("started",), match=history(types=("started",)).items[0].match_id)
-    assert template_answer(one) == "Pia Ash (Harbor City): started 1 match."
-    empty = history(types=("shot",), start=kickoff(50))
-    assert template_answer(empty) == "Nothing found for Pia Ash (Harbor City) with these filters."
-
-
-def test_template_with_team_news_only():
-    text = template_answer(history(types=("team_news",)))
-    assert text.startswith("Pia Ash (Harbor City): no shots, tackles or starts. Team news: 2026-")
+    one = history(match=history().items[0].match_id)
+    assert template_answer(one).startswith("Pia Ash (Harbor City): 1 team news item. ")
+    empty = history(start=kickoff(50))
+    assert template_answer(empty) == "No team news found for Pia Ash (Harbor City) with these filters."
 
 
 def test_a_name_shared_within_a_club_fails_instead_of_guessing():

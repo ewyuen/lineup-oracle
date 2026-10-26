@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .checks import failed_rules
 from .explain import explain
 from . import graph
-from .history import HISTORY_TYPES, HistoryError, HistoryFilters, iso, kickoff, retrieve_player_history, template_answer
+from .history import HistoryError, HistoryFilters, iso, kickoff, retrieve_player_history, template_answer
 from .ingest import Feed, merge
 from .optimizer import POSITIONS
 from .picking import LIFTS_SUSPENSION, eligible, overlay, pick, statuses
@@ -95,10 +95,9 @@ class LineupOut(BaseModel):
 
 
 class HistoryFiltersIn(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")  # a retired filter such as `types` is a 422, not silently ignored
 
     player: str = Field(max_length=100)  # id or exact name
-    types: list[Literal["shot", "tackle", "team_news", "started"]] | None = None
     from_: datetime | None = Field(None, alias="from")
     to: datetime | None = None
     match: str | None = None
@@ -143,14 +142,11 @@ def _history_filters_from_question(state: State, pipeline: Pipeline, question: s
         raise HistoryError(str(err)) from err
     if not parsed.player:
         raise HistoryError("The question names no player; name one, e.g. 'What happened to <player name>?'")
-    unknown = sorted(set(parsed.types or ()) - set(HISTORY_TYPES))
-    if unknown:
-        raise HistoryError(f"The question asks for event types that do not exist: {', '.join(unknown)}")
     try:
         moments = [datetime.fromisoformat(t.replace("Z", "+00:00")) if t else None for t in (parsed.from_, parsed.to)]
     except ValueError:
         raise HistoryError("The question's time range could not be read") from None
-    return HistoryFilters(parsed.player, tuple(parsed.types) if parsed.types else None, moments[0], moments[1], parsed.match)
+    return HistoryFilters(parsed.player, moments[0], moments[1], parsed.match)
 
 
 def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], candidates: list[dict], club: Club) -> LineupOut:
@@ -371,7 +367,7 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
             try:
                 if req.filters is not None:
                     f = req.filters
-                    asked = HistoryFilters(f.player, tuple(f.types) if f.types is not None else None, f.from_, f.to, f.match)
+                    asked = HistoryFilters(f.player, f.from_, f.to, f.match)
                 else:
                     asked = _history_filters_from_question(s, pipeline, req.question, now())
                 history = retrieve_player_history(s, asked, app.state.history_graph, req.session_id)
