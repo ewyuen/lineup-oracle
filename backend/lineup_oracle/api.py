@@ -5,7 +5,7 @@ import os
 import threading
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 import fastapi
@@ -24,7 +24,7 @@ from .optimizer import POSITIONS
 from .picking import LIFTS_SUSPENSION, eligible, overlay, pick, statuses
 from .pipeline import NewsRejected, Pipeline
 from .roster import Club
-from .state import State
+from .state import NewsEntry, State
 from .telemetry import setup_telemetry
 
 Mode = Literal["analyst", "fan"]
@@ -107,6 +107,7 @@ class HistoryFiltersIn(BaseModel):
 class PlayerHistoryRequest(BaseModel):
     question: str | None = Field(None, max_length=300)
     filters: HistoryFiltersIn | None = None
+    session_id: str = Field("default", max_length=64)  # the news this visitor submitted is part of their history only
 
 
 class PlayerHistoryOut(BaseModel):
@@ -133,11 +134,11 @@ def _http(fn, *args):
         raise HTTPException(422, str(err)) from err
 
 
-def _history_filters_from_question(state: State, pipeline: Pipeline, question: str) -> HistoryFilters:
+def _history_filters_from_question(state: State, pipeline: Pipeline, question: str, now: datetime) -> HistoryFilters:
     """The model reads the question into filters; code checks every part, so a made-up one becomes a 422."""
     kickoffs = {day: iso(kickoff(day)) for day in range(1, 1 + max(m["matchday"] for m in state.matches()))}
     try:
-        parsed = pipeline.parse_history_question(question, kickoffs)
+        parsed = pipeline.parse_history_question(question, kickoffs, iso(now))
     except ValueError as err:
         raise HistoryError(str(err)) from err
     if not parsed.player:
@@ -182,7 +183,7 @@ def _render(pipeline: Pipeline, req: PredictRequest, xi, facts: list[dict], cand
     )
 
 
-def create_app(state: State | None = None, pipeline: Pipeline | None = None, clock=time.monotonic) -> FastAPI:
+def create_app(state: State | None = None, pipeline: Pipeline | None = None, clock=time.monotonic, now=lambda: datetime.now(timezone.utc)) -> FastAPI:
     setup_telemetry(os.environ)
     # Looked up on the module: the FastAPI instrumentation replaces fastapi.FastAPI when it is switched on.
     @asynccontextmanager
@@ -196,7 +197,7 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
     app = fastapi.FastAPI(title="Lineup Oracle", lifespan=lifespan)
     app.state.lineup = state or State.load()
     app.state.pipeline = pipeline or Pipeline.from_env()
-    app.state.feed = Feed(app.state.lineup, app.state.pipeline)
+    app.state.feed = Feed(app.state.lineup, app.state.pipeline, now)
     pg_url = os.environ.get("LINEUP_PG_URL")  # optional graph database for player-history reads; unset means memory
     app.state.history_graph = functools.partial(graph.fetch_history, pg_url) if pg_url else None
     # shortcut: the map grows with the number of sessions and is lost on restart; use a bounded or shared store if the API runs several replicas
@@ -286,10 +287,10 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                 span.set_attribute("news.outcome", read.outcome)
                 if read.outcome == "posted":
                     with post_lock:  # check and update together, so two simultaneous posts cannot both pass
-                        now = clock()
-                        if now - last_post.get(req.session_id, -POST_INTERVAL) < POST_INTERVAL:
+                        tick = clock()
+                        if tick - last_post.get(req.session_id, -POST_INTERVAL) < POST_INTERVAL:
                             raise HTTPException(429, f"You can post one line every {POST_INTERVAL} seconds; try again shortly.")
-                        last_post[req.session_id] = now
+                        last_post[req.session_id] = tick
                         app.state.feed.post(req.match_id, req.club, read.texts)
                     xi, facts, candidates = _view(req)
                     out = _render(app.state.pipeline, req, xi, facts, candidates, club)
@@ -313,6 +314,8 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                 merged = merge(feed.shared_availability(req.match_id, club_name), updated)
                 xi, facts = _http(pick, s, req.match_id, club_name, statuses(merged))  # raises before any state changes
                 s.availability[key] = updated
+                name = next(p.name for p in club.players if p.id == player_id)
+                s.session_news.setdefault((req.session_id, player_id, kind), NewsEntry(now(), req.match_id, club_name, req.text or f"{name}: {kind}"))  # the first of a kind stays in history
                 selections = s.selections.get(key, ())
             if club_name != req.club:  # the status landed on the other club; the response is still the requested club's XI
                 xi, facts, candidates = _view(req)
@@ -370,8 +373,8 @@ def create_app(state: State | None = None, pipeline: Pipeline | None = None, clo
                     f = req.filters
                     asked = HistoryFilters(f.player, tuple(f.types) if f.types is not None else None, f.from_, f.to, f.match)
                 else:
-                    asked = _history_filters_from_question(s, pipeline, req.question)
-                history = retrieve_player_history(s, asked, app.state.history_graph)
+                    asked = _history_filters_from_question(s, pipeline, req.question, now())
+                history = retrieve_player_history(s, asked, app.state.history_graph, req.session_id)
             except HistoryError as err:
                 raise HTTPException(422, str(err)) from err
             rows = [item.to_dict() for item in history.items]

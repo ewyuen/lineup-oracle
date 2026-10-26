@@ -1132,7 +1132,8 @@ public sealed class LineupUiTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var call = Assert.Single(handler.Calls, c => c.Path.EndsWith("/player_history"));
-        Assert.Equal("""{"question":"What happened?"}""", call.Body);
+        Assert.Contains("\"question\":\"What happened?\"", call.Body);
+        Assert.Matches("\"session_id\":\"[^\"]+\"", call.Body);
         Assert.Contains("What happened?", html);
         Assert.Contains("AI answer", html);
         Assert.Contains("One &lt;i&gt;event&lt;/i&gt;.", html);

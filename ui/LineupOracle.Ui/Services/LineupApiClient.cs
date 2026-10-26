@@ -156,10 +156,10 @@ public sealed class LineupApiClient(HttpClient httpClient, ILogger<LineupApiClie
     public Task<ApiResult<RestartDto>> RestartFeedAsync(CancellationToken cancellationToken = default) =>
         SendAsync<RestartDto>(new HttpRequestMessage(HttpMethod.Post, "news/restart"), cancellationToken);
 
-    public Task<ApiResult<PlayerHistoryDto>> AskPlayerHistoryAsync(string question, CancellationToken cancellationToken = default) =>
+    public Task<ApiResult<PlayerHistoryDto>> AskPlayerHistoryAsync(string question, string sessionId, CancellationToken cancellationToken = default) =>
         SendAsync<PlayerHistoryDto>(new HttpRequestMessage(HttpMethod.Post, "player_history")
         {
-            Content = JsonContent.Create(new { question }, options: JsonOptions)
+            Content = JsonContent.Create(new { question, session_id = sessionId }, options: JsonOptions)
         }, cancellationToken);
 
     private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)

@@ -15,7 +15,7 @@ from lineup_oracle.events import generate_fixtures, generate_match_events
 from lineup_oracle.history import HistoryFilters, history_from_memory, kickoff, retrieve_player_history
 from lineup_oracle.pipeline import Pipeline
 from lineup_oracle.roster import CLUB_NAMES, Player, generate_synthetic_roster
-from lineup_oracle.state import State
+from lineup_oracle.state import NewsEntry, State
 
 ROSTER = generate_synthetic_roster(42)
 EVENTS = generate_match_events(ROSTER, generate_fixtures(CLUB_NAMES), seed=42)
@@ -155,6 +155,40 @@ def test_graph_and_memory_agree(loaded):
             assert from_graph.items == from_memory.items, (player.id, filters)
             checked += bool(from_graph.items)
     assert checked > 100  # the comparison was not between empty lists
+
+
+def _state_with_news() -> tuple[State, datetime]:
+    """The seeded state with every other team-news item delivered at `now`, and one submitted item per player of one club."""
+    state = State(ROSTER, EVENTS)
+    now = datetime(2026, 10, 26, 9, 30, 15, 250000, tzinfo=timezone.utc)
+    for event in [e for e in EVENTS if e.type == "team_news"][::2]:
+        state.delivered[event.id] = now
+    for player in ROSTER.clubs[CLUB_NAMES[0]].players:
+        state.session_news[("s1", player.id, "doubt")] = NewsEntry(now, next(iter(state.metadata)), player.club, "A doubt")
+    return state, now
+
+
+@needs_db
+def test_graph_and_memory_agree_with_the_news_overlay(loaded):
+    state, now = _state_with_news()
+    day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    checked = 0
+    for player in itertools.islice(state.players.values(), 0, None, 5):
+        for filters in ({}, {"types": ("team_news",)}, {"start": day}, {"end": day}, {"start": kickoff(2), "end": kickoff(5)}):
+            asked = HistoryFilters(player.id, **filters)
+            from_graph = retrieve_player_history(state, asked, lambda p, f: graph.fetch_history(PG_URL, p, f), "s1")
+            assert from_graph.items == retrieve_player_history(state, asked, session_id="s1").items, (player.id, filters)
+            checked += any(i.occurred_at >= day for i in from_graph.items)
+    assert checked > 20  # delivered and submitted items were part of the comparison
+
+
+def test_the_memory_fallback_keeps_the_overlay(monkeypatch):
+    state, now = _state_with_news()
+    monkeypatch.setenv("LINEUP_PG_URL", UNREACHABLE)
+    client = TestClient(create_app(state, Pipeline()))
+    player = ROSTER.clubs[CLUB_NAMES[0]].players[0]
+    body = client.post("/player_history", json={"filters": {"player": player.id, "from": "2026-10-26T00:00:00Z"}, "session_id": "s1"}).json()
+    assert f"manual-{player.id}-doubt" in [e["id"] for e in body["events"]]
 
 
 @needs_db

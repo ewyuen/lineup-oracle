@@ -187,11 +187,12 @@ public sealed class IndexModel(
     public async Task<IActionResult> OnPostHistoryAsync(string? question, CancellationToken cancellationToken)
     {
         if (!HistoryEnabled) return NotFound();
+        EnsureSessionCookie();
         question = question?.Trim();
         if (string.IsNullOrEmpty(question)) return Content("", "text/html");
 
         HistoryQuestion = question;
-        var result = await api.AskPlayerHistoryAsync(question, cancellationToken);
+        var result = await api.AskPlayerHistoryAsync(question, GetSessionId(), cancellationToken);
         if (result.IsSuccess) HistoryResult = result.Value;
         else HistoryError = result.IsUnavailable ? text["ServiceUnavailable"].Value : result.Error;
         return Partial("_HistoryExchange", this);

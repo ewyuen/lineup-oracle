@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -114,11 +114,12 @@ def _utc(moment: datetime | None) -> datetime | None:
 GraphFetch = Callable[[Player, HistoryFilters], list[HistoryItem]]  # raises psycopg.Error when the graph cannot answer
 
 
-def retrieve_player_history(state: State, filters: HistoryFilters, graph: GraphFetch | None = None) -> History:
+def retrieve_player_history(state: State, filters: HistoryFilters, graph: GraphFetch | None = None, session_id: str = "default") -> History:
     """The player's shots, tackles, team news and starts, filtered, in time then id order.
 
     Filters are validated here. With a `graph` the rows come from it, and any database error falls back to the in-memory scan,
-    which is the reference implementation and gives the same rows."""
+    which is the reference implementation and gives the same rows. Either store is asked without the time range: the news that
+    arrived while the service ran is applied to its rows first (`_overlay`), then the range is."""
     player = resolve_player(state, filters.player)
     types = filters.types
     if types is not None:
@@ -131,13 +132,29 @@ def retrieve_player_history(state: State, filters: HistoryFilters, graph: GraphF
     if filters.match is not None and filters.match not in state.metadata:
         raise HistoryError(f"Unknown match {filters.match!r}")
     used = HistoryFilters(player.id, tuple(types) if types is not None else None, start, end, filters.match)
+    stored = replace(used, start=None, end=None)
     items = None
     if graph is not None:
         try:
-            items = graph(player, used)
+            items = graph(player, stored)
         except psycopg.Error as err:
             log.warning("Graph unavailable, answering player history from memory: %s", err)
-    return History(player, used, items if items is not None else history_from_memory(state, player, used))
+    if items is None:
+        items = history_from_memory(state, player, stored)
+    return History(player, used, _overlay(state, player, used, items, session_id))
+
+
+def _overlay(state: State, player: Player, used: HistoryFilters, items: list[HistoryItem], session_id: str) -> list[HistoryItem]:
+    """Feed items re-timed to their delivery, this session's own submitted news added, then the time range applied."""
+    delivered = dict(state.delivered)  # snapshots: the feed and requests write these from other threads
+    rows = [replace(i, occurred_at=_floor_ms(delivered[i.id])) if i.id in delivered else i for i in items]
+    if used.types is None or "team_news" in used.types:
+        for (session, player_id, kind), news in list(state.session_news.items()):
+            if session == session_id and player_id == player.id and used.match in (None, news.match_id):
+                payload = {"kind": kind, "text": news.text, "player_name": player.name}
+                rows.append(HistoryItem(f"manual-{player.id}-{kind}", "team_news", news.match_id, news.club, _floor_ms(news.at), payload))
+    rows = [i for i in rows if (used.start is None or i.occurred_at >= used.start) and (used.end is None or i.occurred_at <= used.end)]
+    return sorted(rows, key=lambda i: (i.occurred_at, i.id))
 
 
 def history_from_memory(state: State, player: Player, used: HistoryFilters) -> list[HistoryItem]:
