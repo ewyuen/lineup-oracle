@@ -160,3 +160,13 @@ h3 { font-size: 1rem; }
     .player-card { min-width: 0; }
     .alternatives { flex-direction: column; }
 }
+
+.history-panel { margin-top: var(--space-md); }
+.history-log { display: grid; gap: var(--space-sm); margin-bottom: var(--space-sm); max-height: 24rem; overflow-y: auto; }
+.history-exchange { display: grid; gap: var(--space-xs); }
+.history-question { margin: 0; }
+.history-answer { margin: 0; padding: var(--space-sm); border-left: 3px solid var(--text-muted); background: var(--surface-lowest); }
+.history-text { white-space: pre-line; margin: 0; }
+.history-marker { margin: 0 0 var(--space-xs); }
+.history-events { margin: var(--space-xs) 0 0; padding-left: var(--space-md); }
+.history-panel button:disabled { opacity: .6; cursor: progress; }

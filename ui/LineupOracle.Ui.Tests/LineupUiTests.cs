@@ -1077,14 +1077,149 @@ public sealed class LineupUiTests
         Assert.Contains("Reiniciar noticias", switchedHtml);
     }
 
-    private sealed class UiFactory(StubApiHandler handler, string apiBaseUrl = "http://lineup.stub/") : WebApplicationFactory<Program>
+    [Fact]
+    public async Task HistoryPanelIsAbsentWhenUnsetOrFalse()
+    {
+        foreach (var flag in new bool?[] { null, false })
+        {
+            using var handler = new StubApiHandler();
+            using var factory = new UiFactory(handler, history: flag);
+            using var client = factory.CreateClient();
+
+            var html = await client.GetStringAsync("/");
+
+            Assert.DoesNotContain("history-panel", html);
+            using var post = HtmxPost("/?handler=History", Form(ExtractAntiforgeryToken(html), ("question", "hi")));
+            using var response = await client.SendAsync(post);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.DoesNotContain(handler.Calls, c => c.Path.EndsWith("/player_history"));
+        }
+    }
+
+    [Fact]
+    public async Task HistoryPanelRendersPreservedWithLanguageKeyedId()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler, history: true);
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Matches("<section id=\"history-panel-en\"[^>]*hx-preserve", html);
+        Assert.Contains("maxlength=\"300\"", html);
+        Assert.Contains("Ask about a player", html);
+        AssertOrdered(html, "news-message", "history-panel-en");
+    }
+
+    [Fact]
+    public async Task HistoryQuestionSendsOnlyTheQuestionAndRendersEncodedAnswerWithEvents()
+    {
+        using var handler = new StubApiHandler
+        {
+            HistoryBody = """
+                {"filters":{},"events":[
+                 {"id":"e1","type":"team_news","match_id":"match-1","club":"Harbor City","occurred_at":"2026-08-13T15:00:00Z","payload":{"text":"<b>Doubtful</b>"}}],
+                 "answer":"One <i>event</i>.","cited_event_ids":["e1"],"llm_used":true}
+                """
+        };
+        using var factory = new UiFactory(handler, history: true);
+        using var client = factory.CreateClient();
+        var token = await GetAntiforgeryTokenAsync(client);
+
+        using var post = HtmxPost("/?handler=History", Form(token, ("question", "  What happened?  ")));
+        using var response = await client.SendAsync(post);
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var call = Assert.Single(handler.Calls, c => c.Path.EndsWith("/player_history"));
+        Assert.Contains("\"question\":\"What happened?\"", call.Body);
+        Assert.Matches("\"session_id\":\"[^\"]+\"", call.Body);
+        Assert.Contains("What happened?", html);
+        Assert.Contains("AI answer", html);
+        Assert.Contains("One &lt;i&gt;event&lt;/i&gt;.", html);
+        Assert.Contains("<details>", html);
+        Assert.Contains("2026-08-13 15:00 UTC", html);
+        Assert.Contains("&lt;b&gt;Doubtful&lt;/b&gt;", html);
+        Assert.DoesNotContain("<b>Doubtful", html);
+    }
+
+    [Fact]
+    public async Task HistoryTemplateAnswerWithNoEventsHasNoList()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler, history: true);
+        using var client = factory.CreateClient();
+        var token = await GetAntiforgeryTokenAsync(client);
+
+        using var post = HtmxPost("/?handler=History", Form(token, ("question", "q")));
+        var html = await (await client.SendAsync(post)).Content.ReadAsStringAsync();
+
+        Assert.Contains("Template answer", html);
+        Assert.Contains("Nothing found.", html);
+        Assert.DoesNotContain("<details>", html);
+    }
+
+    [Fact]
+    public async Task HistoryErrorsAndOutageStayInTheTranscript()
+    {
+        using var handler = new StubApiHandler { HistoryStatusCode = HttpStatusCode.UnprocessableEntity, HistoryBody = """{"detail":"Send explicit filters."}""" };
+        using var factory = new UiFactory(handler, history: true);
+        using var client = factory.CreateClient();
+        var token = await GetAntiforgeryTokenAsync(client);
+
+        using var rejected = HtmxPost("/?handler=History", Form(token, ("question", "q")));
+        var html = await (await client.SendAsync(rejected)).Content.ReadAsStringAsync();
+        Assert.Contains("class=\"error-message\">Send explicit filters.", html);
+        Assert.DoesNotContain("service-banner", html);
+
+        handler.FailAll = true;
+        using var down = HtmxPost("/?handler=History", Form(token, ("question", "q")));
+        var downHtml = await (await client.SendAsync(down)).Content.ReadAsStringAsync();
+        Assert.Contains("Service unavailable", downHtml);
+        Assert.DoesNotContain("service-banner", downHtml);
+    }
+
+    [Fact]
+    public async Task HistoryBlankQuestionSendsNothing()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler, history: true);
+        using var client = factory.CreateClient();
+        var token = await GetAntiforgeryTokenAsync(client);
+
+        using var post = HtmxPost("/?handler=History", Form(token, ("question", "   ")));
+        var html = await (await client.SendAsync(post)).Content.ReadAsStringAsync();
+
+        Assert.Equal("", html);
+        Assert.DoesNotContain(handler.Calls, c => c.Path.EndsWith("/player_history"));
+    }
+
+    [Fact]
+    public async Task HistoryPanelIsLocalizedAndKeyedBySpanish()
+    {
+        using var handler = new StubApiHandler();
+        using var factory = new UiFactory(handler, history: true);
+        using var client = factory.CreateClient();
+        var token = await GetAntiforgeryTokenAsync(client);
+
+        using var language = HtmxPost("/?handler=Language", Form(token,
+            ("language", "es"), ("matchId", "match-1"), ("club", "Harbor City"), ("mode", "analyst")));
+        var html = await (await client.SendAsync(language)).Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"history-panel-es\"", html);
+        Assert.Contains("Pregunta sobre un jugador", html);
+        Assert.Contains("Preguntar", html);
+    }
+
+    private sealed class UiFactory(StubApiHandler handler, string apiBaseUrl = "http://lineup.stub/", bool? history = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["LineupApi:BaseUrl"] = apiBaseUrl
+                    ["LineupApi:BaseUrl"] = apiBaseUrl,
+                    ["PlayerHistory:Enabled"] = history?.ToString()
                 }));
             builder.ConfigureTestServices(services =>
             {
@@ -1124,6 +1259,8 @@ public sealed class LineupUiTests
         public string? NewsOutcomeJson { get; set; }
         public HttpStatusCode? PredictionStatusCode { get; set; }
         public HttpStatusCode? AlternativeStatusCode { get; set; }
+        public HttpStatusCode HistoryStatusCode { get; set; } = HttpStatusCode.OK;
+        public string HistoryBody { get; set; } = """{"filters":{},"events":[],"answer":"Nothing found.","cited_event_ids":[],"llm_used":false}""";
         private readonly ConcurrentDictionary<string, HashSet<string>> selections = new();
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -1211,6 +1348,11 @@ public sealed class LineupUiTests
                 }
 
                 return Json(HttpStatusCode.OK, lineup);
+            }
+
+            if (request.RequestUri.AbsolutePath.EndsWith("/player_history", StringComparison.Ordinal))
+            {
+                return Json(HistoryStatusCode, HistoryBody);
             }
 
             if (request.RequestUri.AbsolutePath.EndsWith("/news/restart", StringComparison.Ordinal))

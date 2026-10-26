@@ -97,7 +97,7 @@ The service SHALL accept a structured team-news submission with a match id, club
 - **THEN** the player is out
 
 ### Requirement: In-memory state with no database
-The service SHALL load the roster and events at startup, from `data/roster.json` and `data/events.jsonl` when present, otherwise generating them in memory from seed 42. A stored events file whose team-news items lack a non-empty `payload.text` or a non-empty Spanish or Traditional Chinese translation SHALL be rejected with an error that says to regenerate the events. Submitted availability SHALL live in memory and be lost on restart.
+The service SHALL load the roster and events at startup, from `data/roster.json` and `data/events.jsonl` when present, otherwise generating them in memory from seed 42. A stored events file whose team-news items lack a non-empty `payload.text` or a non-empty Spanish or Traditional Chinese translation SHALL be rejected with an error that says to regenerate the events. Submitted availability SHALL live in memory and be lost on restart. Lineup prediction, team news and the read-only match operations SHALL use only this in-memory state and SHALL NOT depend on any database. The service MAY use an optional graph database for player-history reads only, and SHALL start and serve normally when it is absent or down.
 
 #### Scenario: Missing events file
 - **WHEN** the service starts and `data/events.jsonl` does not exist
@@ -110,6 +110,10 @@ The service SHALL load the roster and events at startup, from `data/roster.json`
 #### Scenario: Outdated or invalid localized event data
 - **WHEN** the service loads an events file whose team-news item lacks `payload.text` or has a missing or empty Spanish or Traditional Chinese translation
 - **THEN** startup fails with an error instructing the operator to regenerate the events file
+
+#### Scenario: Prediction without the database
+- **WHEN** the graph database is not configured or is unreachable
+- **THEN** the service starts, and predictions, team news and match reads behave exactly as without a database
 
 ### Requirement: Free-text team news
 The service SHALL accept a team-news submission that carries `text` and no player and kind, parse it (see the team-news-parsing capability), and answer with the predicted lineup of the requested club. The text SHALL be at most 100 characters; a longer text SHALL be rejected with 422 and no state change. The response SHALL also carry a `news` object stating the outcome (`applied` or `posted`), and for `applied` the player's name, the player's club and the kind. A submission that carries a player and a kind SHALL keep using the structured path and answer with `news` absent or null.
@@ -279,3 +283,18 @@ Once a player's latest effective news is a suspension, only a "cleared" status s
 #### Scenario: Suspension repeated
 - **WHEN** a session submits a suspension for a player who is already suspended
 - **THEN** the response is the same lineup and no error is returned
+
+### Requirement: Player history endpoint
+The service SHALL answer `POST /player_history` with a `question` or explicit filters and return the filters used, the retrieved events with their ids, the answer text and whether the LLM was used. A malformed or unanswerable request SHALL be rejected with 422 and a message in the `{"detail": message}` shape.
+
+#### Scenario: History by explicit filters
+- **WHEN** `POST /player_history` is sent with a known player id
+- **THEN** the response has that player's events in time order, an answer text and `llm_used`
+
+#### Scenario: Unknown player
+- **WHEN** the player id is not in the roster
+- **THEN** the response is 422 with a message naming it
+
+#### Scenario: Database down
+- **WHEN** the graph database is down and a history is requested
+- **THEN** the response is the same events as with the database up

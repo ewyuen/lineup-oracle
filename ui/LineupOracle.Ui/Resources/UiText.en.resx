@@ -67,4 +67,12 @@
   <data name="AlternativeCandidates" xml:space="preserve"><value>Unavailable players</value></data>
   <data name="AddAlternative" xml:space="preserve"><value>Add to alternatives</value></data>
   <data name="RemoveAlternative" xml:space="preserve"><value>Remove from alternatives</value></data>
+  <data name="HistoryTitle" xml:space="preserve"><value>Ask about a player</value></data>
+  <data name="HistoryHelp" xml:space="preserve"><value>Ask about a player's team news, for example "How is Pia Quinn recently?" (up to 300 characters).</value></data>
+  <data name="HistoryPlaceholder" xml:space="preserve"><value>Ask about a player...</value></data>
+  <data name="HistoryAsk" xml:space="preserve"><value>Ask</value></data>
+  <data name="HistoryAi" xml:space="preserve"><value>AI answer</value></data>
+  <data name="HistoryTemplate" xml:space="preserve"><value>Template answer</value></data>
+  <data name="HistoryEvents" xml:space="preserve"><value>Events</value></data>
+  <data name="HistoryYou" xml:space="preserve"><value>You</value></data>
 </root>

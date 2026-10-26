@@ -12,13 +12,16 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from .agents import Explanations, ParsedNews, Person, explainer_agent, parser_agent
+from .agents import Explanations, HistoryAnswer, ParsedHistoryQuestion, ParsedNews, Person, explainer_agent, history_answer_agent, history_parser_agent, parser_agent
 from .llm import DEFAULT_TIMEOUT, LlmSettings, build_client
 from .roster import Club, Player
 
 T = TypeVar("T")
 UNAVAILABLE = "Free-text team news parsing is unavailable right now; send a player id and a kind instead."
 UNREADABLE = "The news could not be read as a player and a kind (injury, suspension or doubt); send a player id and a kind instead."
+HISTORY_UNAVAILABLE = "Free-text questions are unavailable right now; send explicit filters (a player, and optionally a time range) instead."
+HISTORY_UNREADABLE = "The question could not be read; name a player and optionally a time range, or send explicit filters."
+MAX_HISTORY_ROWS = 100  # events the model sees, the newest
 MAX_EXPLANATION_CHARS = 200
 MAX_POST_CHARS = 200
 POST_LANGUAGES = ("en", "es", "zh-Hant")
@@ -53,6 +56,8 @@ class Pipeline:
         self.timeout = timeout
         self._parser = parser_agent(client) if client is not None else None
         self._explainer = explainer_agent(client) if client is not None else None
+        self._history_parser = history_parser_agent(client) if client is not None else None
+        self._history_answerer = history_answer_agent(client) if client is not None else None
         # shortcut: per-process cache of explanations, lost on restart; use a shared cache if the API runs several replicas
         self._cache: OrderedDict[str, dict[str, str]] = OrderedDict()
         self._cache_lock = threading.Lock()
@@ -173,3 +178,28 @@ class Pipeline:
             if len(self._cache) > CACHE_SIZE:
                 self._cache.popitem(last=False)
         return texts
+
+    def parse_history_question(self, question: str, kickoffs: dict[int, str], now: str) -> ParsedHistoryQuestion:
+        """Free-text question to unvalidated filters; ValueError with a user-facing message if the model is off or fails."""
+        if not self.enabled:
+            raise ValueError(HISTORY_UNAVAILABLE)
+        try:
+            return self._ask(self._history_parser, {"question": question, "now": now, "matchday_kickoffs": {str(k): v for k, v in kickoffs.items()}}, ParsedHistoryQuestion)
+        except (ValidationError, ValueError):
+            raise ValueError(HISTORY_UNREADABLE) from None
+        except Exception:  # model error or timeout
+            raise ValueError(HISTORY_UNAVAILABLE) from None
+
+    def answer_history(self, question: str | None, filters: dict[str, Any], rows: list[dict[str, Any]]) -> tuple[str, list[str]] | None:
+        """(answer, cited ids) written from the rows, or None (use the template) if the model is off, fails, or cites an event it was not given."""
+        if not self.enabled or not rows:
+            return None
+        shown = rows[-MAX_HISTORY_ROWS:]
+        try:
+            answer = self._ask(self._history_answerer, {"question": question, "filters": filters, "events": shown}, HistoryAnswer)
+        except Exception:  # model error, timeout or unreadable answer
+            return None
+        cited = list(dict.fromkeys(answer.cited_event_ids))
+        if not answer.answer.strip() or not cited or not set(cited) <= {r["id"] for r in shown}:
+            return None
+        return answer.answer.strip(), cited

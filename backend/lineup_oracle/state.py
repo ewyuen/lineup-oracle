@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from .events import Event, generate_fixtures, generate_match_events
@@ -18,6 +19,16 @@ def _load_events(path: Path) -> list[Event]:
         return [Event(**json.loads(line)) for line in handle if line.strip()]
 
 
+@dataclass(frozen=True)
+class NewsEntry:
+    """Team news a session submitted, as the player's history shows it."""
+
+    at: datetime
+    match_id: str
+    club: str
+    text: str
+
+
 @dataclass
 class State:
     """Everything the API serves: roster, events and the availability submitted so far."""
@@ -31,6 +42,9 @@ class State:
     availability: dict[tuple[str, str, str], dict[str, tuple[str, int]]] = field(default_factory=dict)
     # (session_id, match_id, club) -> player ids the analyst put in the alternatives, oldest first; replaced, never edited in place
     selections: dict[tuple[str, str, str], tuple[str, ...]] = field(default_factory=dict)
+    # Player history overlay, in memory only and never cleared by reset(), so a feed restart neither re-dates nor duplicates news.
+    delivered: dict[str, datetime] = field(default_factory=dict)  # feed team-news event id -> first delivery time (UTC)
+    session_news: dict[tuple[str, str, str], NewsEntry] = field(default_factory=dict)  # (session_id, player_id, kind) -> first submission
     lock: threading.Lock = field(default_factory=threading.Lock)  # held while news is checked and saved
 
     def __post_init__(self) -> None:

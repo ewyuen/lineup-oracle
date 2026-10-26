@@ -195,6 +195,47 @@ public sealed class LineupApiClientTests
         Assert.Equal(7, result.Value!.LatestSeq);
     }
 
+    [Fact]
+    public async Task PlayerHistoryPostsOnlyTheQuestionAndParsesEvents()
+    {
+        HttpRequestMessage? sent = null;
+        string? body = null;
+        using var client = CreateClient(request =>
+        {
+            sent = request;
+            body = request.Content!.ReadAsStringAsync().Result;
+            return Json(HttpStatusCode.OK, """
+                {"filters":{},"events":[
+                  {"id":"e1","type":"team_news","match_id":"match-1","club":"Harbor City","occurred_at":"2026-08-13T15:00:00Z","payload":{"text":"Ash is doubtful."}},
+                  {"id":"e2","type":"shot","match_id":"match-1","club":"Harbor City","occurred_at":"2026-08-15T15:10:00Z","payload":{}}],
+                 "answer":"Two events.","cited_event_ids":["e1"],"llm_used":true}
+                """);
+        });
+        var api = new LineupApiClient(client, NullLogger<LineupApiClient>.Instance);
+
+        var result = await api.AskPlayerHistoryAsync("What happened to Hugo Ash?", "s1");
+
+        Assert.Equal("/player_history", sent!.RequestUri!.AbsolutePath);
+        Assert.Equal("""{"question":"What happened to Hugo Ash?","session_id":"s1"}""", body);
+        Assert.True(result.Value!.LlmUsed);
+        Assert.Equal(2, result.Value.Events.Count);
+        Assert.Equal("Ash is doubtful.", result.Value.Events[0].Text);
+        Assert.Null(result.Value.Events[1].Text);
+    }
+
+    [Fact]
+    public async Task PlayerHistoryMapsRejectionAndOutage()
+    {
+        using var rejected = CreateClient(_ => Json(HttpStatusCode.UnprocessableEntity, """{"detail":"Send explicit filters."}"""));
+        using var down = CreateClient(_ => throw new HttpRequestException("refused"));
+
+        var failure = await new LineupApiClient(rejected, NullLogger<LineupApiClient>.Instance).AskPlayerHistoryAsync("q", "s1");
+        var outage = await new LineupApiClient(down, NullLogger<LineupApiClient>.Instance).AskPlayerHistoryAsync("q", "s1");
+
+        Assert.Equal("Send explicit filters.", failure.Error);
+        Assert.True(outage.IsUnavailable);
+    }
+
     private static PredictionRequest Request() =>
         new("match-1", "Harbor City", "analyst", "es", "session-abc");
 
