@@ -53,6 +53,11 @@ class HistoryAnswer(BaseModel):
     cited_event_ids: list[str]
 
 
+MALE_PLAYERS_RULE = (
+    "Every player is male: refer to a player as he, him or his (él or su in Spanish, 他 in Traditional Chinese), never they, she or 她, "
+    "and use masculine Spanish adjectives for a player. Use no gendered pronoun for a club. "
+)
+
 PARSER_INSTRUCTIONS = (
     "You read one line of football team news, in any language, and extract who and what it is about. "
     "You receive JSON with the club, its roster (id, name, number, position) and the text. "
@@ -64,6 +69,7 @@ PARSER_INSTRUCTIONS = (
     "a player of this roster, else null}] (an owner, buyer or coach is a person too; an empty list if the text names no one), "
     "\"translations\": {\"en\": the line in English, \"es\": in Spanish, \"zh-Hant\": in Traditional Chinese; keep the original "
     "wording and every name verbatim, add nothing}}. "
+    + MALE_PLAYERS_RULE + "In the translations never add a pronoun the original lacks. "
     "Use only ids from the roster. If the text names no player of this roster or no clear kind, use null. Never invent ids."
 )
 
@@ -72,6 +78,7 @@ EXPLAINER_INSTRUCTIONS = (
     "You receive JSON with a mode, a language and a list of players with facts (id, name, position, p_start, starts, played, status, best_rating). "
     "Use only these facts, nothing else, and do not invent events or real-world names. "
     "Write every sentence in the requested language (en English, es Spanish, zh-Hant Traditional Chinese), at most 25 words. "
+    + MALE_PLAYERS_RULE +
     "In mode analyst you may quote p_start as a percentage and the counts. In mode fan write plain words: no numbers with percent signs and no probabilities. "
     "A status of doubt means a fitness doubt; mention it. "
     "A status of out means the player is injured or unavailable and not expected to start; say so and never call such a player a likely starter. "
@@ -101,6 +108,7 @@ HISTORY_ANSWER_INSTRUCTIONS = (
     "You answer a question about what happened to a football player, using only the events you receive. "
     "You receive JSON with the question, the filters and the events (id, type, match_id, club, occurred_at, payload), oldest first. "
     "Use only these events, nothing else, and add no outside knowledge about real players or clubs. Be brief: at most 80 words. "
+    + MALE_PLAYERS_RULE +
     "Answer with JSON only: {\"answer\": the answer text, \"cited_event_ids\": the ids of every event the answer relies on}. "
     "Cite only ids you received."
 )
