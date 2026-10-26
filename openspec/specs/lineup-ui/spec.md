@@ -307,7 +307,7 @@ The UI SHALL show an "Ask about a player" panel under the Team news panel only w
 Submitting a question SHALL send it alone to the API's `/player_history` as `question`, without earlier messages, and SHALL show the question and the result in the panel without reloading the page, replacing any earlier question and result so only one exchange is shown. An empty or blank question SHALL NOT be sent.
 
 #### Scenario: Ask a question
-- **WHEN** the user submits "What did Saka do before matchday 3?"
+- **WHEN** the user submits "How is Pia Quinn recently?"
 - **THEN** one request carrying only that question is sent, and the panel shows the question followed by the answer
 
 #### Scenario: Second question replaces the first

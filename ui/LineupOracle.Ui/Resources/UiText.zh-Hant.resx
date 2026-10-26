@@ -68,7 +68,7 @@
   <data name="AddAlternative" xml:space="preserve"><value>加入替補人選</value></data>
   <data name="RemoveAlternative" xml:space="preserve"><value>移出替補人選</value></data>
   <data name="HistoryTitle" xml:space="preserve"><value>詢問球員</value></data>
-  <data name="HistoryHelp" xml:space="preserve"><value>詢問球員發生了什麼事，例如「薩卡在第3輪之前做了什麼？」（最多300字）。</value></data>
+  <data name="HistoryHelp" xml:space="preserve"><value>詢問球員的球隊消息，例如「Pia Quinn 最近怎麼樣？」（最多300字）。</value></data>
   <data name="HistoryPlaceholder" xml:space="preserve"><value>詢問球員……</value></data>
   <data name="HistoryAsk" xml:space="preserve"><value>詢問</value></data>
   <data name="HistoryAi" xml:space="preserve"><value>AI 回答</value></data>

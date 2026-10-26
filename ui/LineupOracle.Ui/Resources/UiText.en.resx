@@ -68,7 +68,7 @@
   <data name="AddAlternative" xml:space="preserve"><value>Add to alternatives</value></data>
   <data name="RemoveAlternative" xml:space="preserve"><value>Remove from alternatives</value></data>
   <data name="HistoryTitle" xml:space="preserve"><value>Ask about a player</value></data>
-  <data name="HistoryHelp" xml:space="preserve"><value>Ask what happened to a player, for example "What did Saka do before matchday 3?" (up to 300 characters).</value></data>
+  <data name="HistoryHelp" xml:space="preserve"><value>Ask about a player's team news, for example "How is Pia Quinn recently?" (up to 300 characters).</value></data>
   <data name="HistoryPlaceholder" xml:space="preserve"><value>Ask about a player...</value></data>
   <data name="HistoryAsk" xml:space="preserve"><value>Ask</value></data>
   <data name="HistoryAi" xml:space="preserve"><value>AI answer</value></data>
