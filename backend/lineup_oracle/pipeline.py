@@ -179,12 +179,12 @@ class Pipeline:
                 self._cache.popitem(last=False)
         return texts
 
-    def parse_history_question(self, question: str, kickoffs: dict[int, str]) -> ParsedHistoryQuestion:
+    def parse_history_question(self, question: str, kickoffs: dict[int, str], now: str) -> ParsedHistoryQuestion:
         """Free-text question to unvalidated filters; ValueError with a user-facing message if the model is off or fails."""
         if not self.enabled:
             raise ValueError(HISTORY_UNAVAILABLE)
         try:
-            return self._ask(self._history_parser, {"question": question, "matchday_kickoffs": {str(k): v for k, v in kickoffs.items()}}, ParsedHistoryQuestion)
+            return self._ask(self._history_parser, {"question": question, "now": now, "matchday_kickoffs": {str(k): v for k, v in kickoffs.items()}}, ParsedHistoryQuestion)
         except (ValidationError, ValueError):
             raise ValueError(HISTORY_UNREADABLE) from None
         except Exception:  # model error or timeout

@@ -355,3 +355,26 @@ def test_restart_waits_for_the_state_lock(feed, state):
         assert not done.wait(0.2)  # held back by the lock a news submit would hold
     assert done.wait(5)
     t.join()
+
+
+def test_first_delivery_dates_the_news_and_later_laps_keep_it(state, pipe):
+    from datetime import datetime, timedelta, timezone
+
+    clock = [datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc)]
+    feed = Feed(state, pipe, lambda: clock[0])
+    first = feed.items[0].id
+    feed.step()
+    assert state.delivered == {first: clock[0]}
+    clock[0] += timedelta(days=1)
+    for _ in range(len(feed.items)):  # the rest of the lap, then the loop reset
+        feed.step()
+    feed.step()  # second lap, first item again
+    feed.restart()
+    assert state.delivered[first] == datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc)
+    assert len(state.delivered) == len(feed.items)
+
+
+def test_an_item_that_is_not_applied_is_dated_too(feed, pipe, state):
+    pipe.override[feed.items[0].payload["text"]] = NewsRejected("no")
+    feed.step()
+    assert feed.items[0].id in state.delivered

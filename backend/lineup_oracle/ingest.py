@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 from collections import deque
+from datetime import datetime, timezone
 
 from opentelemetry import trace
 
@@ -26,8 +27,8 @@ class Feed:
 
     The lock guards everything below and is never held across a model call or an optimizer solve."""
 
-    def __init__(self, state: State, pipeline) -> None:
-        self.state, self.pipeline = state, pipeline
+    def __init__(self, state: State, pipeline, now=lambda: datetime.now(timezone.utc)) -> None:
+        self.state, self.pipeline, self.now = state, pipeline, now
         featured = {m for m, e in state.metadata.items() if e.payload["matchday"] == FEATURED_MATCHDAY}
         self.items = sorted(
             (e for e in state.events if e.type == "team_news" and e.match_id in featured),
@@ -73,6 +74,7 @@ class Feed:
             item = self.items[self._pos]
             self._pos += 1
             generation = self.generation
+            self.state.delivered.setdefault(item.id, self.now())  # first delivery is the news's date in player history; later laps keep it
         # The ticker thread has no request, so this is a root span of its own.
         with tracer.start_as_current_span("news.step") as span:
             span.set_attributes({"match_id": item.match_id, "club": item.club, "news.parse_correct": False, "news.applied": False})

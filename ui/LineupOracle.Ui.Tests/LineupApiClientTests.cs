@@ -213,10 +213,10 @@ public sealed class LineupApiClientTests
         });
         var api = new LineupApiClient(client, NullLogger<LineupApiClient>.Instance);
 
-        var result = await api.AskPlayerHistoryAsync("What happened to Hugo Ash?");
+        var result = await api.AskPlayerHistoryAsync("What happened to Hugo Ash?", "s1");
 
         Assert.Equal("/player_history", sent!.RequestUri!.AbsolutePath);
-        Assert.Equal("""{"question":"What happened to Hugo Ash?"}""", body);
+        Assert.Equal("""{"question":"What happened to Hugo Ash?","session_id":"s1"}""", body);
         Assert.True(result.Value!.LlmUsed);
         Assert.Equal(2, result.Value.Events.Count);
         Assert.Equal("Ash is doubtful.", result.Value.Events[0].Text);
@@ -229,8 +229,8 @@ public sealed class LineupApiClientTests
         using var rejected = CreateClient(_ => Json(HttpStatusCode.UnprocessableEntity, """{"detail":"Send explicit filters."}"""));
         using var down = CreateClient(_ => throw new HttpRequestException("refused"));
 
-        var failure = await new LineupApiClient(rejected, NullLogger<LineupApiClient>.Instance).AskPlayerHistoryAsync("q");
-        var outage = await new LineupApiClient(down, NullLogger<LineupApiClient>.Instance).AskPlayerHistoryAsync("q");
+        var failure = await new LineupApiClient(rejected, NullLogger<LineupApiClient>.Instance).AskPlayerHistoryAsync("q", "s1");
+        var outage = await new LineupApiClient(down, NullLogger<LineupApiClient>.Instance).AskPlayerHistoryAsync("q", "s1");
 
         Assert.Equal("Send explicit filters.", failure.Error);
         Assert.True(outage.IsUnavailable);

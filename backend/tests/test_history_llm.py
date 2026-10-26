@@ -57,7 +57,7 @@ def test_question_is_parsed_and_answered_with_citations():
     assert body["cited_event_ids"] == [e["id"] for e in body["events"]][:2]
     assert all(e["occurred_at"] <= body["filters"]["to"] for e in body["events"])
     parse_call = next(c for c in fake.calls if "matchday_kickoffs" in c)
-    assert parse_call["question"] == QUESTION and parse_call["matchday_kickoffs"]["1"] == "2026-08-15T15:00:00.000Z"
+    assert parse_call["now"].endswith("Z") and parse_call["question"] == QUESTION and parse_call["matchday_kickoffs"]["1"] == "2026-08-15T15:00:00.000Z"
 
 
 def test_explicit_filters_make_no_parse_call_but_may_use_the_model_to_answer():
@@ -125,3 +125,9 @@ def test_kickoff_table_matches_the_rule():
     ask(client, question=QUESTION)
     table = next(c for c in fake.calls if "matchday_kickoffs" in c)["matchday_kickoffs"]
     assert len(table) == 10 and table["2"] == "2026-08-22T15:00:00.000Z" and kickoff(10).isoformat().startswith("2026-10-17T15:00")
+
+
+def test_the_parser_prompt_explains_now():
+    from lineup_oracle.agents import HISTORY_PARSER_INSTRUCTIONS
+
+    assert "now" in HISTORY_PARSER_INSTRUCTIONS and "today" in HISTORY_PARSER_INSTRUCTIONS

@@ -96,11 +96,12 @@ def explainer_agent(client) -> Agent:
 
 HISTORY_PARSER_INSTRUCTIONS = (
     "You turn one question about what happened to a football player into search filters. "
-    "You receive JSON with the question and the kickoff time of every matchday (ISO 8601, UTC). "
+    "You receive JSON with the question and the kickoff time of every matchday and the current time now (ISO 8601, UTC). "
     "Answer with JSON only: {\"player\": the player's full name exactly as written in the question, \"types\": a list of the event types the question asks about, "
     "from shot, tackle, team_news (injuries, suspensions and doubts) and started (matches the player started), or null for all, "
     "\"from\": start of the time range as ISO 8601 or null, \"to\": end of the time range as ISO 8601 or null, \"match\": a match id or null}. "
     "Map phrases such as \"before matchday 3\" or \"after matchday 2\" to the kickoff times you were given. "
+    "Map \"today\" or \"this week\" to a range ending at now. "
     "Use null for anything the question does not say. Never invent a player."
 )
 
