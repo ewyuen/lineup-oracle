@@ -19,4 +19,4 @@
 
 ## 4. Approval
 
-- [ ] 4.1 Human approval gate: stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it after `feature/player-history-graph-rag` (the PR targets that branch, or main once it has merged)
+- [x] 4.1 Human approval gate: stop and wait for the user to approve. After approval, run the OpenSpec archive, then open a PR and merge it after `feature/player-history-graph-rag` (the PR targets that branch, or main once it has merged)
