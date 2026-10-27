@@ -253,6 +253,7 @@ module ui 'containerApp.bicep' = {
       { name: 'OTEL_SERVICE_NAME', value: 'lineup-ui' }
       { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
       { name: 'LineupApi__BaseUrl', value: 'https://${api.outputs.fqdn}' }
+      { name: 'PlayerHistory__Enabled', value: 'true' }
     ]
   }
   dependsOn: [
