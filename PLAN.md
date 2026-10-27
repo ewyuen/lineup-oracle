@@ -20,6 +20,7 @@ Rules: https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20
 - [x] Record a demonstration video under two minutes, showing the app running on its supported platform. Use only material you own or have permission to use; avoid third-party trademarks and copyrighted audio.
 - [x] Upload the video to an allowed public host and add the public video URL and repository URL to the hackathon project page.
 - [x] Save the project page and verify its required fields and links before the deadline.
+- [x] Add post-submission player history: ask about a player's team news (`POST /player_history`), with news that arrives or is submitted in a session included, and an optional Postgres + Apache AGE graph (off by default). The UI panel is behind `PlayerHistory:Enabled`.
 
 ## Who builds what
 | Tool | Does |
@@ -44,6 +45,8 @@ Claude Code prepares and reviews the OpenSpec proposals and specifications. Copi
 ## Implemented OpenSpec changes
 
 The planned implementation changes are complete, including the Azure deployment. The MCP adapter was subsequently removed as an unnecessary submission feature. Recent cleanup and documentation changes keep the repository focused on Copilot and Claude and make the local demo easier to evaluate.
+
+After submission: `player-history-graph-rag`, `news-in-player-history` and `team-news-only-history` added the history feature. History is team news only (no shots, tackles or starts) and is kept in memory per session. The Azure Postgres graph was deployed, tested and removed on Oct 26, 2026, so the live site uses the in-memory path.
 
 ## Risks
 - Synthetic-data evaluation demonstrates the approach, not real-world prediction accuracy; state this clearly in the project description and video.
