@@ -18,6 +18,8 @@ dotnet run --project ui/LineupOracle.Ui
 
 The API base URL defaults to `http://127.0.0.1:8000`. Override it with the .NET configuration key `LineupApi:BaseUrl`, for example by setting the environment variable `LineupApi__BaseUrl`.
 
+The "Ask about a player" panel under Team news is shown only when `PlayerHistory:Enabled` is true. It is off by default, on in Development (`appsettings.Development.json`), and on in Azure (`PlayerHistory__Enabled` in `infra/main.bicep`).
+
 ## Test
 
 From the repository root:
