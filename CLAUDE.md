@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## State of the repo
 
-Implementation has started. Done and archived: `synthetic-data-and-replay`, `pstart-scoring-and-xi-optimizer` and `fastapi-and-mcp-server` (the Python package `lineup_oracle` in `backend/`: seeded roster, event generator, async replay, P(start) scoring, XI optimizer and FastAPI service). Nothing else is built yet except the in-progress `player-history-graph-rag` change (history retrieval, `POST /player_history`, optional Postgres + Apache AGE graph). The repo also holds [PLAN.md](PLAN.md) (agreed design, deadlines, risks), `openspec/` (specs and change proposals) and agent/skill config. Read PLAN.md before designing anything.
+Implementation is complete and deployed. Done and archived: `synthetic-data-and-replay`, `pstart-scoring-and-xi-optimizer`, `fastapi-and-mcp-server`, `player-history-graph-rag`, `news-in-player-history` and `team-news-only-history` (the Python package `lineup_oracle` in `backend/`: seeded roster, event generator, async replay, P(start) scoring, XI optimizer, FastAPI service and team-news player history with an optional Postgres + Apache AGE graph), plus the Razor/HTMX UI and the Azure deployment, which is live. The history panel is behind `PlayerHistory:Enabled` (on in Development and in Azure). The repo also holds [PLAN.md](PLAN.md) (agreed design, deadlines, risks), `openspec/` (specs and change proposals) and agent/skill config. Read PLAN.md before designing anything.
 
 Backend commands, run from `backend/`: `python -m pytest -q` (all tests), `python -m pytest -q -k <name>` (one test), `python -m lineup_oracle.events --seed 42 --out data/events.jsonl` (generate events), `python -m lineup_oracle.roster` (rewrite the seeded `data/roster.json`), `uvicorn lineup_oracle.api:create_app --factory` (API on port 8000). Details are in `backend/README.md`. No lint tooling yet.
 
@@ -14,7 +14,7 @@ Hackathon: Microsoft x Premier League "Inside the Game". Submission deadline is 
 
 ## Workflow: OpenSpec
 
-Work is organised as one OpenSpec change per step (spec-driven schema). Use the `/opsx:propose`, `/opsx:apply`, `/opsx:explore`, `/opsx:sync`, `/opsx:archive` commands (Claude commands in `.claude/commands/opsx`, Copilot equivalents in `.github/prompts`). Planned changes, in order: agent pipeline and LLM explanations; Razor/HTMX UI; Azure Bicep deployment.
+Work is organised as one OpenSpec change per step (spec-driven schema). Use the `/opsx:propose`, `/opsx:apply`, `/opsx:explore`, `/opsx:sync`, `/opsx:archive` commands (Claude commands in `.claude/commands/opsx`, Copilot equivalents in `.github/prompts`). No further changes are planned.
 
 Who builds what is in PLAN.md. Every change must:
 - include unit tests for its new logic;
